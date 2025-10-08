@@ -150,6 +150,63 @@ See `docs/RaceBox BLE Protocol Description rev 8.md` for full protocol details.
 - Go to app settings and manually grant Bluetooth and location permissions
 - On Android 12+, ensure "Nearby devices" permission is granted
 
+## Testing
+
+The project includes a comprehensive test suite for the Racebox BLE library with 68+ tests covering protocol parsing, data models, and device detection.
+
+### Running Tests
+
+Run all tests:
+
+```bash
+flutter test
+```
+
+Run tests with coverage:
+
+```bash
+flutter test --coverage
+```
+
+Run specific test files:
+
+```bash
+# Protocol tests
+flutter test test/racebox_ble/protocol/
+
+# Model tests
+flutter test test/racebox_ble/models/
+
+# Connection tests
+flutter test test/racebox_ble/connection/
+```
+
+Run a single test file:
+
+```bash
+flutter test test/racebox_ble/protocol/packet_parser_test.dart
+```
+
+### Test Coverage
+
+The test suite covers:
+
+- **Protocol Layer** (27 tests)
+  - UBX packet parsing and encoding
+  - Checksum calculation and verification
+  - 80-byte payload parsing
+  - Data conversions (mm/s → km/h, milli-g → g, etc.)
+
+- **Data Models** (31 tests)
+  - GPS data structure and conversions
+  - Motion data (accelerometer/gyroscope)
+  - Racebox telemetry data
+  - Validity flag parsing
+
+- **Device Detection** (10 tests)
+  - Device type identification (Mini, Mini S, Micro)
+  - Name parsing and validation
+
 ## Future Enhancements
 
 Potential features for future development:
