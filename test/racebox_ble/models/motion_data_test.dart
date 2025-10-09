@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_racebox_exporter/racebox_ble/models/motion_data.dart';
-import 'dart:math' as math;
 
 void main() {
   group('MotionData', () {

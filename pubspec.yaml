@@ -43,6 +43,10 @@ dependencies:
   
   # Permissions handling
   permission_handler: ^11.3.1
+  
+  # HTTP client for simulator
+  http: ^1.2.0
+  web_socket_channel: ^2.4.0
 
 dev_dependencies:
   flutter_test:

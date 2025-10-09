@@ -200,7 +200,7 @@ class MotionSection extends StatelessWidget {
                 widthFactor: normalized,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.7),
+                    color: color.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),

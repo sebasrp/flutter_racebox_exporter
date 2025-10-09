@@ -1,7 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/racebox_provider.dart';
-import '../racebox_ble/connection/ble_manager.dart';
+import '../racebox_ble/connection/device_connection_interface.dart';
 import '../racebox_ble/connection/racebox_device.dart';
 
 /// Connection section widget
@@ -49,20 +50,23 @@ class ConnectionSection extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusIndicator(BuildContext context, BleConnectionState state) {
+  Widget _buildStatusIndicator(
+    BuildContext context,
+    DeviceConnectionState state,
+  ) {
     Color color;
     String text;
 
     switch (state) {
-      case BleConnectionState.disconnected:
+      case DeviceConnectionState.disconnected:
         color = Colors.grey;
         text = 'Disconnected';
         break;
-      case BleConnectionState.connecting:
+      case DeviceConnectionState.connecting:
         color = Colors.orange;
         text = 'Connecting...';
         break;
-      case BleConnectionState.connected:
+      case DeviceConnectionState.connected:
         color = Colors.green;
         text = 'Connected';
         break;
@@ -129,6 +133,32 @@ class ConnectionSection extends StatelessWidget {
             minimumSize: const Size.fromHeight(48),
           ),
         ),
+        // Debug mode hint
+        if (!kReleaseMode) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.blue.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Debug mode: Simulator devices available (start simulator CLI)',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: Colors.blue[700]),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         if (provider.devices.isNotEmpty) ...[
           const SizedBox(height: 16),
           const Text('Available Devices:'),
@@ -150,12 +180,21 @@ class ConnectionSection extends StatelessWidget {
     RaceboxDevice device,
     VoidCallback onTap,
   ) {
+    final sourceIcon = device.source == DeviceSource.bluetooth
+        ? Icons.bluetooth
+        : Icons.computer;
+    final sourceText = device.source == DeviceSource.bluetooth
+        ? 'Bluetooth'
+        : 'Simulator';
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        leading: const Icon(Icons.device_hub),
+        leading: Icon(sourceIcon, color: Colors.blue),
         title: Text(device.name),
-        subtitle: Text('${device.type.name} • RSSI: ${device.rssi}'),
+        subtitle: Text(
+          '${device.type.name} • $sourceText • RSSI: ${device.rssi}',
+        ),
         trailing: const Icon(Icons.chevron_right),
         onTap: onTap,
       ),

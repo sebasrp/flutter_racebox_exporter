@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_racebox_exporter/racebox_ble/protocol/packet_parser.dart';
-import 'package:flutter_racebox_exporter/racebox_ble/models/racebox_data.dart';
 
 void main() {
   group('PacketParser', () {
