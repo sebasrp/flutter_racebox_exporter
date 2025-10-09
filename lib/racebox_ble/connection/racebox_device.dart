@@ -1,9 +1,12 @@
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
+/// Device source (Bluetooth or Simulator)
+enum DeviceSource { bluetooth, simulator }
+
 /// Represents a discovered Racebox device
 class RaceboxDevice {
-  /// The underlying BLE device
-  final BluetoothDevice device;
+  /// The underlying BLE device (null for simulator devices)
+  final BluetoothDevice? device;
 
   /// Device name
   final String name;
@@ -14,11 +17,19 @@ class RaceboxDevice {
   /// Signal strength (RSSI)
   final int rssi;
 
+  /// Device source (bluetooth or simulator)
+  final DeviceSource source;
+
+  /// Simulator device ID (null for Bluetooth devices)
+  final String? simulatorId;
+
   RaceboxDevice({
-    required this.device,
+    this.device,
     required this.name,
     required this.type,
     required this.rssi,
+    this.source = DeviceSource.bluetooth,
+    this.simulatorId,
   });
 
   /// Parse device type from name
@@ -58,11 +69,35 @@ class RaceboxDevice {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is RaceboxDevice && other.device.remoteId == device.remoteId;
+    if (other is! RaceboxDevice) return false;
+
+    // For Bluetooth devices, compare by remoteId
+    if (source == DeviceSource.bluetooth &&
+        other.source == DeviceSource.bluetooth) {
+      return device != null &&
+          other.device != null &&
+          other.device!.remoteId == device!.remoteId;
+    }
+
+    // For simulator devices, compare by simulatorId
+    if (source == DeviceSource.simulator &&
+        other.source == DeviceSource.simulator) {
+      return simulatorId == other.simulatorId;
+    }
+
+    return false;
   }
 
   @override
-  int get hashCode => device.remoteId.hashCode;
+  int get hashCode {
+    if (source == DeviceSource.bluetooth && device != null) {
+      return device!.remoteId.hashCode;
+    }
+    if (source == DeviceSource.simulator && simulatorId != null) {
+      return simulatorId.hashCode;
+    }
+    return name.hashCode;
+  }
 }
 
 /// Racebox device types

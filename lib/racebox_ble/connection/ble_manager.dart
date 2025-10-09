@@ -106,7 +106,7 @@ class BleManager {
           if (device != null) {
             // Update or add device
             final index = _discoveredDevices.indexWhere(
-              (d) => d.device.remoteId == device.device.remoteId,
+              (d) => d.device!.remoteId == device.device!.remoteId,
             );
             if (index >= 0) {
               _discoveredDevices[index] = device;
@@ -141,12 +141,19 @@ class BleManager {
       // Stop scanning
       await stopScan();
 
+      // Ensure device has a Bluetooth device (not a simulator)
+      if (device.device == null) {
+        throw Exception(
+          'Cannot connect to non-Bluetooth device via BLE manager',
+        );
+      }
+
       // Check if device is already connected
-      final connectionState = await device.device.connectionState.first;
+      final connectionState = await device.device!.connectionState.first;
       if (connectionState == BluetoothConnectionState.connected) {
         // Already connected, try to disconnect first
         try {
-          await device.device.disconnect();
+          await device.device!.disconnect();
           await Future.delayed(const Duration(seconds: 1));
         } catch (e) {
           // Ignore disconnect errors
@@ -154,7 +161,7 @@ class BleManager {
       }
 
       // Connect to device with longer timeout
-      await device.device.connect(
+      await device.device!.connect(
         timeout: const Duration(seconds: 35),
         autoConnect: false,
       );
@@ -165,7 +172,7 @@ class BleManager {
       _connectedDevice = device;
 
       // Listen to connection state
-      _connectionStateSubscription = device.device.connectionState.listen((
+      _connectionStateSubscription = device.device!.connectionState.listen((
         state,
       ) {
         if (state == BluetoothConnectionState.disconnected) {
@@ -175,13 +182,13 @@ class BleManager {
 
       // Request higher MTU for better data throughput
       try {
-        await device.device.requestMtu(512);
+        await device.device!.requestMtu(512);
       } catch (e) {
         // MTU request may fail on some devices, continue anyway
       }
 
       // Discover services
-      final services = await device.device.discoverServices();
+      final services = await device.device!.discoverServices();
 
       // Small delay after service discovery to let device stabilize
       await Future.delayed(const Duration(milliseconds: 500));
@@ -274,8 +281,8 @@ class BleManager {
       await _connectionStateSubscription?.cancel();
       _connectionStateSubscription = null;
 
-      if (_connectedDevice != null) {
-        await _connectedDevice!.device.disconnect();
+      if (_connectedDevice != null && _connectedDevice!.device != null) {
+        await _connectedDevice!.device!.disconnect();
       }
 
       _txCharacteristic = null;
