@@ -2,14 +2,14 @@ import 'package:flutter/foundation.dart';
 import '../racebox_ble/racebox_service.dart';
 import '../racebox_ble/models/racebox_data.dart';
 import '../racebox_ble/connection/racebox_device.dart';
-import '../racebox_ble/connection/ble_manager.dart';
+import '../racebox_ble/connection/device_connection_interface.dart';
 
 /// Provider for managing Racebox service state
 class RaceboxProvider extends ChangeNotifier {
   final RaceboxService _service = RaceboxService();
 
   List<RaceboxDevice> _devices = [];
-  BleConnectionState _connectionState = BleConnectionState.disconnected;
+  DeviceConnectionState _connectionState = DeviceConnectionState.disconnected;
   RaceboxData? _latestData;
   String? _error;
   bool _isScanning = false;
@@ -41,7 +41,7 @@ class RaceboxProvider extends ChangeNotifier {
   List<RaceboxDevice> get devices => _devices;
 
   /// Connection state
-  BleConnectionState get connectionState => _connectionState;
+  DeviceConnectionState get connectionState => _connectionState;
 
   /// Latest telemetry data
   RaceboxData? get latestData => _latestData;
@@ -75,7 +75,19 @@ class RaceboxProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (kDebugMode) {
+        print('[RaceboxProvider] Starting scan...');
+      }
       await _service.startScan();
+      if (kDebugMode) {
+        print('[RaceboxProvider] Scan completed');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('[RaceboxProvider] Scan error: $e');
+      }
+      _error = 'Scan failed: $e';
+      notifyListeners();
     } finally {
       _isScanning = false;
       notifyListeners();
