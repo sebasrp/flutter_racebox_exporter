@@ -150,6 +150,48 @@ See `docs/RaceBox BLE Protocol Description rev 8.md` for full protocol details.
 - Go to app settings and manually grant Bluetooth and location permissions
 - On Android 12+, ensure "Nearby devices" permission is granted
 
+## Device Simulator
+
+The project includes a standalone HTTP/WebSocket simulator that emulates Racebox devices without requiring physical hardware. Perfect for development, testing, and CI/CD.
+
+### Quick Start
+
+```bash
+# Terminal 1: Start simulator
+dart run simulator/bin/racebox_simulator.dart --mode moving --speed 80
+
+# Terminal 2: Run app
+flutter run
+```
+
+In the app, tap "Scan for Devices" and you'll see both real Bluetooth devices and simulator devices (marked with 🖥️ icon).
+
+### Simulator Features
+
+- **No Bluetooth required** - works in emulators and CI/CD
+- **Debug mode resilience** - works even if Bluetooth is disabled on your Mac
+- Two modes: static (stationary) and moving (circular/straight routes)
+- Configurable speed, location, battery, satellites
+- Real-time telemetry at 25Hz
+- Multiple simulators can run simultaneously
+
+**Note:** In debug mode, the app will gracefully handle Bluetooth errors and continue scanning for simulator devices. This allows development on machines without Bluetooth hardware or when Bluetooth is disabled.
+
+### Configuration
+
+```bash
+# Static device at specific location
+dart run simulator/bin/racebox_simulator.dart --lat 37.7749 --lon -122.4194
+
+# Moving vehicle at 120 km/h
+dart run simulator/bin/racebox_simulator.dart --mode moving --speed 120
+
+# Custom device name and type
+dart run simulator/bin/racebox_simulator.dart --name "Test Device" --type miniS
+```
+
+See [simulator/README.md](simulator/README.md) for full documentation.
+
 ## Testing
 
 The project includes a comprehensive test suite for the Racebox BLE library with 68+ tests covering protocol parsing, data models, and device detection.
