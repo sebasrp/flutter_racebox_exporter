@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/racebox_provider.dart';
-import '../racebox_ble/connection/ble_manager.dart';
+import '../racebox_ble/connection/device_connection_interface.dart';
 import '../widgets/connection_section.dart';
 import '../widgets/gps_section.dart';
 import '../widgets/motion_section.dart';
@@ -79,7 +79,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                   // Show data sections only if connected
                   if (provider.connectionState ==
-                      BleConnectionState.connected) ...[
+                      DeviceConnectionState.connected) ...[
                     // GPS section
                     const GpsSection(),
                     const SizedBox(height: 16),

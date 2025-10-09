@@ -25,18 +25,6 @@ void main() {
     test(
       'verify returns true for valid packet from protocol documentation',
       () {
-        // Example packet from protocol doc (page 8)
-        final packet = [
-          0xB5, 0x62, // Header
-          0xFF, 0x01, // Class and ID
-          0x50, 0x00, // Length (80 bytes)
-          // Payload (first few bytes)
-          0xA0, 0xE7, 0x0C, 0x07, 0xE6, 0x07, 0x01, 0x0A,
-          0x08, 0x33, 0x08, 0x37, 0x19, 0x00, 0x00, 0x00,
-          // ... (rest of 80 bytes payload)
-          // We'll just test the checksum calculation works
-        ];
-
         // Create a minimal valid packet
         final minimalPacket = [
           0xB5, 0x62, // Header
