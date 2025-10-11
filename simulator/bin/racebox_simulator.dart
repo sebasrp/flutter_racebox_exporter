@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'dart:io';
 import 'package:args/args.dart';
 import 'package:racebox_simulator/server/http_server.dart';
