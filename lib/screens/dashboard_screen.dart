@@ -6,6 +6,7 @@ import '../widgets/connection_section.dart';
 import '../widgets/gps_section.dart';
 import '../widgets/motion_section.dart';
 import '../widgets/status_section.dart';
+import 'settings_screen.dart';
 
 /// Main dashboard screen for displaying Racebox telemetry
 class DashboardScreen extends StatefulWidget {
@@ -41,6 +42,78 @@ class _DashboardScreenState extends State<DashboardScreen> {
       appBar: AppBar(
         title: const Text('Racebox Dashboard'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        actions: [
+          // Sync status indicator
+          Consumer<RaceboxProvider>(
+            builder: (context, provider, child) {
+              final syncService = provider.syncService;
+
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      syncService.isSyncing ? Icons.sync : Icons.cloud_upload,
+                      color: syncService.pendingCount > 0
+                          ? Colors.orange
+                          : Colors.green,
+                    ),
+                    onPressed: () {
+                      if (!syncService.isSyncing) {
+                        syncService.syncNow();
+                      }
+                    },
+                    tooltip: 'Sync: ${syncService.pendingCount} pending',
+                  ),
+                  if (syncService.pendingCount > 0)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          syncService.pendingCount > 99
+                              ? '99+'
+                              : syncService.pendingCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  if (syncService.isSyncing)
+                    const Positioned(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+          // Settings button
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
+          ),
+        ],
       ),
       body: Consumer<RaceboxProvider>(
         builder: (context, provider, child) {
@@ -73,6 +146,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Sync status banner
+                  if (provider.syncService.isSyncing ||
+                      provider.syncService.pendingCount > 0)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: provider.syncService.isSyncing
+                            ? Colors.blue.withOpacity(0.1)
+                            : Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: provider.syncService.isSyncing
+                              ? Colors.blue
+                              : Colors.orange,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          if (provider.syncService.isSyncing)
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          else
+                            const Icon(
+                              Icons.cloud_upload,
+                              size: 16,
+                              color: Colors.orange,
+                            ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              provider.syncService.isSyncing
+                                  ? 'Syncing data to server...'
+                                  : '${provider.syncService.pendingCount} records waiting to sync',
+                              style: TextStyle(
+                                color: provider.syncService.isSyncing
+                                    ? Colors.blue[700]
+                                    : Colors.orange[700],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          if (!provider.syncService.isSyncing)
+                            TextButton(
+                              onPressed: () => provider.syncService.syncNow(),
+                              child: const Text('Sync Now'),
+                            ),
+                        ],
+                      ),
+                    ),
+
                   // Connection section
                   const ConnectionSection(),
                   const SizedBox(height: 16),
@@ -122,6 +249,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
             ),
+          );
+        },
+      ),
+      floatingActionButton: Consumer<RaceboxProvider>(
+        builder: (context, provider, child) {
+          // Only show FAB when connected
+          if (provider.connectionState != DeviceConnectionState.connected) {
+            return const SizedBox.shrink();
+          }
+
+          return FloatingActionButton.extended(
+            onPressed: () {
+              if (provider.isRecording) {
+                provider.stopRecording();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Recording stopped. ${provider.recordedCount} points saved.',
+                    ),
+                  ),
+                );
+              } else {
+                provider.startRecording();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Recording started')),
+                );
+              }
+            },
+            icon: Icon(
+              provider.isRecording ? Icons.stop : Icons.fiber_manual_record,
+            ),
+            label: Text(
+              provider.isRecording
+                  ? 'Stop (${provider.recordedCount})'
+                  : 'Record',
+            ),
+            backgroundColor: provider.isRecording ? Colors.red : Colors.green,
           );
         },
       ),
