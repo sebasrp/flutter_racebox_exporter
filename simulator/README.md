@@ -44,7 +44,7 @@ dart run bin/racebox_simulator.dart --name "My RaceBox" --type miniS
 
 | Option | Short | Default | Description |
 |--------|-------|---------|-------------|
-| `--port` | `-p` | `8080` | HTTP server port |
+| `--port` | `-p` | `8090` | HTTP server port |
 | `--mode` | `-m` | `static` | Simulator mode: static or moving |
 | `--name` | `-n` | `RaceBox Mini (Simulator)` | Device name |
 | `--type` | | `mini` | Device type: mini, miniS, or micro |
@@ -144,7 +144,7 @@ GET /api/devices/:id/status
 ### WebSocket Endpoint
 
 ```
-ws://localhost:8080/ws/:id
+ws://localhost:8090/ws/:id
 ```
 
 Streams telemetry data at 25Hz (every 40ms).
@@ -181,7 +181,7 @@ You can run multiple simulators on different ports:
 
 ```bash
 # Terminal 1: Device 1
-dart run bin/racebox_simulator.dart --port 8080 --name "Device 1" --speed 60
+dart run bin/racebox_simulator.dart --port 8090 --name "Device 1" --speed 60
 
 # Terminal 2: Device 2
 dart run bin/racebox_simulator.dart --port 8081 --name "Device 2" --speed 100
@@ -244,8 +244,8 @@ The simulator generates realistic data based on the protocol specification:
 
 ### Simulator not detected in app
 
-- Check simulator is running: `curl http://localhost:8080/api/devices`
-- Ensure port 8080 is not blocked
+- Check simulator is running: `curl http://localhost:8090/api/devices`
+- Ensure port 8090 is not blocked
 - Verify Flutter app is in debug mode
 
 ### No data received

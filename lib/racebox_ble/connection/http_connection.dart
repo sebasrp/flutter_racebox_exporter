@@ -23,7 +23,7 @@ class HttpConnection implements DeviceConnection {
   final _dataController = StreamController<RaceboxData>.broadcast();
   final _errorController = StreamController<String>.broadcast();
 
-  HttpConnection({this.simulatorUrl = 'http://localhost:8080'});
+  HttpConnection({this.simulatorUrl = 'http://localhost:8090'});
 
   @override
   Stream<List<RaceboxDevice>> get devicesStream => _devicesController.stream;

@@ -8,7 +8,7 @@ import 'package:racebox_simulator/simulator/simulator_device.dart';
 
 void main(List<String> args) async {
   final parser = ArgParser()
-    ..addOption('port', abbr: 'p', defaultsTo: '8080', help: 'HTTP server port')
+    ..addOption('port', abbr: 'p', defaultsTo: '8090', help: 'HTTP server port')
     ..addOption('mode',
         abbr: 'm',
         defaultsTo: 'static',
