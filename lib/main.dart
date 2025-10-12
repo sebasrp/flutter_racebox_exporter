@@ -3,7 +3,10 @@ import 'package:provider/provider.dart';
 import 'providers/racebox_provider.dart';
 import 'screens/dashboard_screen.dart';
 
-void main() {
+void main() async {
+  // Ensure Flutter bindings are initialized
+  WidgetsFlutterBinding.ensureInitialized();
+
   runApp(const MyApp());
 }
 
