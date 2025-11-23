@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
+import 'package:logger/logger.dart';
 
 /// Configuration for AVT API
 class AvtApiConfig {
@@ -27,10 +30,17 @@ class BatchUploadResult {
   });
 }
 
-/// Client for communicating with AVT service
+/// Client for communicating with AVT service with gzip compression support
 class AvtApiClient {
   final http.Client _httpClient;
+  final Logger _logger = Logger();
+  final Uuid _uuid = const Uuid();
   String _baseUrl = AvtApiConfig.defaultUrl;
+
+  // Compression statistics
+  int _totalUncompressedBytes = 0;
+  int _totalCompressedBytes = 0;
+  int _compressionCount = 0;
 
   AvtApiClient({http.Client? httpClient})
     : _httpClient = httpClient ?? http.Client() {
@@ -61,6 +71,28 @@ class AvtApiClient {
     _baseUrl = url.endsWith('/') ? url.substring(0, url.length - 1) : url;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(AvtApiConfig.urlKey, _baseUrl);
+  }
+
+  /// Get compression statistics
+  Map<String, dynamic> getCompressionStats() {
+    final compressionRatio = _totalUncompressedBytes > 0
+        ? (1 - (_totalCompressedBytes / _totalUncompressedBytes)) * 100
+        : 0.0;
+
+    return {
+      'total_uncompressed_bytes': _totalUncompressedBytes,
+      'total_compressed_bytes': _totalCompressedBytes,
+      'compression_count': _compressionCount,
+      'compression_ratio_percent': compressionRatio.toStringAsFixed(1),
+      'bandwidth_saved_bytes': _totalUncompressedBytes - _totalCompressedBytes,
+    };
+  }
+
+  /// Reset compression statistics
+  void resetCompressionStats() {
+    _totalUncompressedBytes = 0;
+    _totalCompressedBytes = 0;
+    _compressionCount = 0;
   }
 
   /// Send batch of telemetry data to AVT service
@@ -124,22 +156,51 @@ class AvtApiClient {
     // Attempt upload with retries
     for (int attempt = 1; attempt <= AvtApiConfig.maxRetries; attempt++) {
       try {
-        final jsonBody = jsonEncode(apiData);
+        // Generate unique request ID for tracking
+        final requestId = _uuid.v4();
 
-        if (kDebugMode) {
-          print('[AvtApiClient] Uploading ${apiData.length} records');
-          if (apiData.isNotEmpty) {
-            print(
-              '[AvtApiClient] First record timestamp: ${apiData.first['timestamp']}',
+        // Serialize to JSON
+        final jsonBody = jsonEncode(apiData);
+        final uncompressedBytes = utf8.encode(jsonBody);
+        final uncompressedSize = uncompressedBytes.length;
+
+        // Compress with gzip
+        final compressedBytes = gzip.encode(uncompressedBytes);
+        final compressedSize = compressedBytes.length;
+
+        // Update compression statistics
+        _totalUncompressedBytes += uncompressedSize;
+        _totalCompressedBytes += compressedSize;
+        _compressionCount++;
+
+        final compressionRatio =
+            ((1 - (compressedSize / uncompressedSize)) * 100).toStringAsFixed(
+              1,
             );
-          }
+
+        _logger.d(
+          'Uploading ${apiData.length} records: '
+          'uncompressed=${uncompressedSize}B, '
+          'compressed=${compressedSize}B, '
+          'ratio=$compressionRatio%, '
+          'requestId=$requestId',
+        );
+
+        if (kDebugMode && apiData.isNotEmpty) {
+          print(
+            '[AvtApiClient] First record timestamp: ${apiData.first['timestamp']}',
+          );
         }
 
         final response = await _httpClient
             .post(
               Uri.parse('$_baseUrl/api/telemetry/batch'),
-              headers: {'Content-Type': 'application/json'},
-              body: jsonBody,
+              headers: {
+                'Content-Type': 'application/json',
+                'Content-Encoding': 'gzip',
+                'X-Request-ID': requestId,
+              },
+              body: compressedBytes,
             )
             .timeout(AvtApiConfig.timeout);
 
@@ -149,9 +210,10 @@ class AvtApiClient {
               .map((id) => id as int)
               .toList();
 
-          if (kDebugMode) {
-            print('[AvtApiClient] Successfully uploaded ${ids.length} records');
-          }
+          _logger.i(
+            'Successfully uploaded ${ids.length} records '
+            '(attempt $attempt, requestId=$requestId, compression=$compressionRatio%)',
+          );
 
           return BatchUploadResult(
             success: true,
@@ -169,8 +231,11 @@ class AvtApiClient {
           }
 
           final error = 'Server returned ${response.statusCode}: $errorDetails';
+          _logger.w(
+            'Upload failed (attempt $attempt, requestId=$requestId): $error',
+          );
+
           if (kDebugMode) {
-            print('[AvtApiClient] Upload failed: $error');
             print('[AvtApiClient] Full response: ${response.body}');
           }
 
@@ -184,13 +249,9 @@ class AvtApiClient {
           }
         }
       } on TimeoutException {
-        if (kDebugMode) {
-          print('[AvtApiClient] Request timeout on attempt $attempt');
-        }
+        _logger.w('Request timeout on attempt $attempt');
       } catch (e) {
-        if (kDebugMode) {
-          print('[AvtApiClient] Error on attempt $attempt: $e');
-        }
+        _logger.e('Error on attempt $attempt: $e');
 
         // Don't retry on certain errors
         if (e.toString().contains('Failed host lookup') ||
