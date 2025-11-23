@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter_racebox_exporter/database/telemetry_queue_database.dart';
 import 'package:flutter_racebox_exporter/services/avt_api_client.dart';
 import 'package:flutter_racebox_exporter/services/network_monitor.dart';
 import 'package:logger/logger.dart';
+import 'package:uuid/uuid.dart';
 
 /// Result of a batch upload attempt
 class UploadResult {
@@ -27,6 +29,7 @@ class BatchUploaderService {
   final AvtApiClient apiClient;
   final NetworkMonitor networkMonitor;
   final Logger _logger = Logger();
+  final Uuid _uuid = const Uuid();
 
   // Upload state
   bool _isUploading = false;
@@ -36,6 +39,7 @@ class BatchUploaderService {
   // Statistics
   int _totalUploaded = 0;
   int _totalFailed = 0;
+  int _duplicatesDetected = 0;
   DateTime? _lastSuccessfulUpload;
   DateTime? _lastFailedUpload;
 
@@ -144,24 +148,57 @@ class BatchUploaderService {
         );
       }
 
+      // Generate unique batch ID for idempotency
+      final batchId = _uuid.v4();
+
+      // Check if this batch was already processed (idempotency check)
+      final alreadyProcessed = await database.isBatchProcessed(batchId);
+      if (alreadyProcessed) {
+        _logger.w(
+          '⚠️ Batch $batchId already processed, skipping (${records.length} records)',
+        );
+        _duplicatesDetected++;
+
+        // Mark records as uploaded since they were already sent
+        final recordIds = records.map((r) => r['id'] as int).toList();
+        await database.markAsUploaded(recordIds, batchId);
+
+        return UploadResult(
+          success: true,
+          recordsUploaded: records.length,
+          networkQuality: quality,
+          attemptCount: 0,
+        );
+      }
+
       _logger.i(
-        '📤 Uploading ${records.length} records (quality: ${quality.name}, batch size: $batchSize)',
+        '📤 Uploading ${records.length} records (batchId: $batchId, quality: ${quality.name})',
       );
 
       // Convert database records to API format
       // data_json is stored as a JSON string, so we need to parse it
       final batch = records
-          .map((record) => record['data_json'] as Map<String, dynamic>)
+          .map(
+            (record) =>
+                jsonDecode(record['data_json'] as String)
+                    as Map<String, dynamic>,
+          )
           .toList();
 
-      // Upload batch
-      final result = await apiClient.sendBatch(batch);
+      // Upload batch with batch ID for server-side idempotency
+      final result = await apiClient.sendBatch(batch, batchId: batchId);
 
       if (result.success) {
         // Mark records as uploaded
         final recordIds = records.map((r) => r['id'] as int).toList();
-        final batchId = 'batch-${DateTime.now().millisecondsSinceEpoch}';
         await database.markAsUploaded(recordIds, batchId);
+
+        // Mark batch as processed for client-side idempotency
+        await database.markBatchProcessed(
+          batchId,
+          records.length,
+          serverResponse: 'Success: ${result.savedIds.length} records saved',
+        );
 
         // Update statistics
         _totalUploaded += records.length;
@@ -240,6 +277,7 @@ class BatchUploaderService {
     return {
       'total_uploaded': _totalUploaded,
       'total_failed': _totalFailed,
+      'duplicates_detected': _duplicatesDetected,
       'last_successful_upload': _lastSuccessfulUpload?.toIso8601String(),
       'last_failed_upload': _lastFailedUpload?.toIso8601String(),
       'is_uploading': _isUploading,

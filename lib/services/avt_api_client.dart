@@ -100,6 +100,7 @@ class AvtApiClient {
     List<Map<String, dynamic>> telemetryBatch, {
     String? deviceId,
     String? sessionId,
+    String? batchId,
   }) async {
     if (telemetryBatch.isEmpty) {
       return BatchUploadResult(success: true, savedIds: []);
@@ -192,28 +193,51 @@ class AvtApiClient {
           );
         }
 
+        final headers = {
+          'Content-Type': 'application/json',
+          'Content-Encoding': 'gzip',
+          'X-Request-ID': requestId,
+        };
+
+        // Add batch ID header for server-side idempotency if provided
+        if (batchId != null) {
+          headers['X-Batch-ID'] = batchId;
+        }
+
         final response = await _httpClient
             .post(
               Uri.parse('$_baseUrl/api/telemetry/batch'),
-              headers: {
-                'Content-Type': 'application/json',
-                'Content-Encoding': 'gzip',
-                'X-Request-ID': requestId,
-              },
+              headers: headers,
               body: compressedBytes,
             )
             .timeout(AvtApiConfig.timeout);
 
-        if (response.statusCode == 201) {
+        if (response.statusCode == 201 || response.statusCode == 200) {
           final responseData = jsonDecode(response.body);
-          final ids = (responseData['ids'] as List<dynamic>)
-              .map((id) => id as int)
-              .toList();
 
-          _logger.i(
-            'Successfully uploaded ${ids.length} records '
-            '(attempt $attempt, requestId=$requestId, compression=$compressionRatio%)',
-          );
+          // Check if this was a duplicate batch (idempotency)
+          final isDuplicate =
+              responseData['message']?.toString().contains(
+                'already processed',
+              ) ??
+              false;
+
+          final ids =
+              (responseData['ids'] as List<dynamic>?)
+                  ?.map((id) => id as int)
+                  .toList() ??
+              [];
+
+          if (isDuplicate) {
+            _logger.i(
+              'Batch already processed on server (batchId: $batchId, requestId=$requestId)',
+            );
+          } else {
+            _logger.i(
+              'Successfully uploaded ${ids.length} records '
+              '(attempt $attempt, requestId=$requestId, compression=$compressionRatio%)',
+            );
+          }
 
           return BatchUploadResult(
             success: true,
