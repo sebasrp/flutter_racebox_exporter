@@ -52,6 +52,7 @@ dependencies:
   sqflite: ^2.3.0
   sqflite_common_ffi: ^2.3.0
   path: ^1.8.3
+  path_provider: ^2.1.0
 
   # Network connectivity monitoring
   connectivity_plus: ^5.0.2
@@ -61,6 +62,16 @@ dependencies:
 
   # Shared preferences for settings
   shared_preferences: ^2.2.2
+
+  # Background processing
+  workmanager: ^0.5.2  # Android background tasks
+  background_fetch: ^1.2.0  # iOS background tasks
+
+  # Battery monitoring
+  battery_plus: ^5.0.0
+
+  # Logging
+  logger: ^2.0.0
 
 dev_dependencies:
   flutter_test:
