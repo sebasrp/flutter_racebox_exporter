@@ -31,6 +31,9 @@ class BatchUploaderService {
   final Logger _logger = Logger();
   final Uuid _uuid = const Uuid();
 
+  // Configuration
+  static const int maxRetries = 5;
+
   // Upload state
   bool _isUploading = false;
   Timer? _uploadTimer;
@@ -40,6 +43,7 @@ class BatchUploaderService {
   int _totalUploaded = 0;
   int _totalFailed = 0;
   int _duplicatesDetected = 0;
+  int _movedToDeadLetterQueue = 0;
   DateTime? _lastSuccessfulUpload;
   DateTime? _lastFailedUpload;
 
@@ -231,6 +235,19 @@ class BatchUploaderService {
         final recordIds = records.map((r) => r['id'] as int).toList();
         await database.incrementRetryCount(recordIds);
 
+        // Check for records that exceeded max retries and move to DLQ
+        final movedToDlq = await database.moveFailedToDeadLetterQueue(
+          maxRetries: maxRetries,
+          lastError: result.error,
+        );
+
+        if (movedToDlq > 0) {
+          _movedToDeadLetterQueue += movedToDlq;
+          _logger.w(
+            '⚠️ Moved $movedToDlq records to dead letter queue (total: $_movedToDeadLetterQueue)',
+          );
+        }
+
         // Record upload stats
         await database.recordUploadStats(
           recordsUploaded: 0,
@@ -278,6 +295,7 @@ class BatchUploaderService {
       'total_uploaded': _totalUploaded,
       'total_failed': _totalFailed,
       'duplicates_detected': _duplicatesDetected,
+      'moved_to_dlq': _movedToDeadLetterQueue,
       'last_successful_upload': _lastSuccessfulUpload?.toIso8601String(),
       'last_failed_upload': _lastFailedUpload?.toIso8601String(),
       'is_uploading': _isUploading,
@@ -300,6 +318,39 @@ class BatchUploaderService {
   Future<int> cleanupOldRecords({int daysToKeep = 7}) async {
     _logger.i('🧹 Cleaning up records older than $daysToKeep days');
     return await database.deleteUploadedOlderThan(daysToKeep);
+  }
+
+  /// Get dead letter queue statistics
+  Future<Map<String, dynamic>> getDeadLetterQueueStats() async {
+    return await database.getDeadLetterQueueStats();
+  }
+
+  /// Get dead letter queue records
+  Future<List<Map<String, dynamic>>> getDeadLetterQueueRecords({
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    return await database.getDeadLetterQueueRecords(
+      limit: limit,
+      offset: offset,
+    );
+  }
+
+  /// Retry a record from the dead letter queue
+  Future<bool> retryFromDeadLetterQueue(int dlqId) async {
+    return await database.retryFromDeadLetterQueue(dlqId);
+  }
+
+  /// Clean up old dead letter queue records
+  Future<int> cleanupOldDeadLetterQueue({int daysToKeep = 30}) async {
+    _logger.i('🧹 Cleaning up DLQ records older than $daysToKeep days');
+    return await database.cleanupOldDeadLetterQueue(daysToKeep);
+  }
+
+  /// Purge all dead letter queue records
+  Future<int> purgeDeadLetterQueue() async {
+    _logger.w('⚠️ Purging all dead letter queue records');
+    return await database.purgeDeadLetterQueue();
   }
 
   /// Dispose resources

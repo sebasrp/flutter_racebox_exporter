@@ -96,6 +96,10 @@ class TelemetryQueueDatabase {
       CREATE INDEX idx_batch_id ON telemetry_queue(batch_id)
     ''');
 
+    await db.execute('''
+      CREATE INDEX idx_retry_count ON telemetry_queue(retry_count)
+    ''');
+
     // Track uploaded batches for idempotency
     await db.execute('''
       CREATE TABLE upload_batches (
@@ -122,6 +126,26 @@ class TelemetryQueueDatabase {
     // Create index for stats queries
     await db.execute('''
       CREATE INDEX idx_stats_timestamp ON upload_stats(timestamp)
+    ''');
+
+    // Dead letter queue for permanently failed records
+    await db.execute('''
+      CREATE TABLE dead_letter_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        original_id INTEGER NOT NULL,
+        timestamp TEXT NOT NULL,
+        data_json TEXT NOT NULL,
+        retry_count INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        failed_at INTEGER NOT NULL,
+        last_error TEXT,
+        UNIQUE(original_id)
+      )
+    ''');
+
+    // Create index for DLQ queries
+    await db.execute('''
+      CREATE INDEX idx_dlq_failed_at ON dead_letter_queue(failed_at)
     ''');
 
     _logger.i('Telemetry queue database schema created successfully');
@@ -445,12 +469,193 @@ class TelemetryQueueDatabase {
     }
   }
 
+  /// Move records that exceeded max retries to dead letter queue
+  ///
+  /// [maxRetries] - Maximum number of retries before moving to DLQ (default: 5)
+  /// [lastError] - Optional error message to store with DLQ records
+  /// Returns the number of records moved to DLQ
+  Future<int> moveFailedToDeadLetterQueue({
+    int maxRetries = 5,
+    String? lastError,
+  }) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    // Find records that exceeded max retries
+    final failedRecords = await db.query(
+      'telemetry_queue',
+      where: 'retry_count >= ? AND uploaded_at IS NULL',
+      whereArgs: [maxRetries],
+    );
+
+    if (failedRecords.isEmpty) {
+      return 0;
+    }
+
+    final batch = db.batch();
+
+    // Move each failed record to DLQ
+    for (final record in failedRecords) {
+      batch.insert('dead_letter_queue', {
+        'original_id': record['id'],
+        'timestamp': record['timestamp'],
+        'data_json': record['data_json'],
+        'retry_count': record['retry_count'],
+        'created_at': record['created_at'],
+        'failed_at': now,
+        'last_error': lastError,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+
+      // Delete from main queue
+      batch.delete(
+        'telemetry_queue',
+        where: 'id = ?',
+        whereArgs: [record['id']],
+      );
+    }
+
+    await batch.commit(noResult: true);
+
+    _logger.w(
+      '⚠️ Moved ${failedRecords.length} permanently failed records to dead letter queue',
+    );
+    return failedRecords.length;
+  }
+
+  /// Get dead letter queue statistics
+  ///
+  /// Returns a map with DLQ metrics
+  Future<Map<String, dynamic>> getDeadLetterQueueStats() async {
+    final db = await database;
+
+    // Count DLQ records
+    final countResult = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM dead_letter_queue',
+    );
+    final count = countResult.first['count'] as int;
+
+    // Get oldest DLQ record
+    final oldestResult = await db.rawQuery(
+      'SELECT MIN(failed_at) as oldest FROM dead_letter_queue',
+    );
+    final oldestTimestamp = oldestResult.first['oldest'] as int?;
+
+    // Get most recent DLQ record
+    final newestResult = await db.rawQuery(
+      'SELECT MAX(failed_at) as newest FROM dead_letter_queue',
+    );
+    final newestTimestamp = newestResult.first['newest'] as int?;
+
+    return {
+      'count': count,
+      'oldest_failed': oldestTimestamp != null
+          ? DateTime.fromMillisecondsSinceEpoch(oldestTimestamp)
+          : null,
+      'newest_failed': newestTimestamp != null
+          ? DateTime.fromMillisecondsSinceEpoch(newestTimestamp)
+          : null,
+    };
+  }
+
+  /// Get dead letter queue records
+  ///
+  /// [limit] - Maximum number of records to fetch
+  /// [offset] - Number of records to skip
+  /// Returns list of DLQ records
+  Future<List<Map<String, dynamic>>> getDeadLetterQueueRecords({
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    final db = await database;
+
+    return await db.query(
+      'dead_letter_queue',
+      orderBy: 'failed_at DESC',
+      limit: limit,
+      offset: offset,
+    );
+  }
+
+  /// Retry a record from the dead letter queue
+  ///
+  /// Moves a record back to the main queue with reset retry count
+  /// [dlqId] - ID of the record in the dead letter queue
+  /// Returns true if successful
+  Future<bool> retryFromDeadLetterQueue(int dlqId) async {
+    final db = await database;
+
+    // Get the DLQ record
+    final dlqRecords = await db.query(
+      'dead_letter_queue',
+      where: 'id = ?',
+      whereArgs: [dlqId],
+      limit: 1,
+    );
+
+    if (dlqRecords.isEmpty) {
+      _logger.w('⚠️ DLQ record $dlqId not found');
+      return false;
+    }
+
+    final dlqRecord = dlqRecords.first;
+
+    // Insert back into main queue with reset retry count
+    await db.insert('telemetry_queue', {
+      'timestamp': dlqRecord['timestamp'],
+      'data_json': dlqRecord['data_json'],
+      'retry_count': 0,
+      'created_at': DateTime.now().millisecondsSinceEpoch,
+      'uploaded_at': null,
+      'batch_id': null,
+    });
+
+    // Delete from DLQ
+    await db.delete('dead_letter_queue', where: 'id = ?', whereArgs: [dlqId]);
+
+    _logger.i('✅ Moved DLQ record $dlqId back to main queue');
+    return true;
+  }
+
+  /// Delete old dead letter queue records
+  ///
+  /// [days] - Number of days to keep DLQ records
+  /// Returns the number of records deleted
+  Future<int> cleanupOldDeadLetterQueue(int days) async {
+    final db = await database;
+    final cutoffTime = DateTime.now()
+        .subtract(Duration(days: days))
+        .millisecondsSinceEpoch;
+
+    final deletedCount = await db.delete(
+      'dead_letter_queue',
+      where: 'failed_at < ?',
+      whereArgs: [cutoffTime],
+    );
+
+    _logger.i('Cleaned up $deletedCount old DLQ records');
+    return deletedCount;
+  }
+
+  /// Purge all dead letter queue records
+  ///
+  /// WARNING: This permanently deletes all DLQ records
+  /// Returns the number of records deleted
+  Future<int> purgeDeadLetterQueue() async {
+    final db = await database;
+
+    final deletedCount = await db.delete('dead_letter_queue');
+
+    _logger.w('⚠️ Purged $deletedCount records from dead letter queue');
+    return deletedCount;
+  }
+
   /// Reset the database (for testing purposes)
   Future<void> reset() async {
     final db = await database;
     await db.delete('telemetry_queue');
     await db.delete('upload_batches');
     await db.delete('upload_stats');
+    await db.delete('dead_letter_queue');
     _logger.w('Telemetry queue database reset - all data deleted');
   }
 }
