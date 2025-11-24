@@ -26,11 +26,21 @@ class HttpConnection implements DeviceConnection {
 
   /// Get the default simulator URL based on platform
   /// Android emulators use 10.0.2.2 to access host machine
-  /// iOS simulators and other platforms use localhost
+  /// Web and other platforms use localhost
   static String getDefaultSimulatorUrl() {
-    if (Platform.isAndroid) {
-      return 'http://10.0.2.2:8090';
+    // Web platform always uses localhost
+    if (kIsWeb) {
+      return 'http://localhost:8090';
     }
+    // Android emulators need special IP to reach host
+    try {
+      if (Platform.isAndroid) {
+        return 'http://10.0.2.2:8090';
+      }
+    } catch (_) {
+      // Platform check failed (shouldn't happen but handle gracefully)
+    }
+    // Default for iOS and other platforms
     return 'http://localhost:8090';
   }
 
