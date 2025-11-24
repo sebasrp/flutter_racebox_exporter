@@ -164,6 +164,7 @@ class BleManager {
       await device.device!.connect(
         timeout: const Duration(seconds: 35),
         autoConnect: false,
+        license: License.free,
       );
 
       // Wait for connection to stabilize

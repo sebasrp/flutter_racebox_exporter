@@ -12,7 +12,7 @@ class TelemetrySyncService extends ChangeNotifier {
   final Connectivity _connectivity = Connectivity();
 
   Timer? _syncTimer;
-  StreamSubscription<ConnectivityResult>? _connectivitySubscription;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
   bool _isSyncing = false;
   DateTime? _lastSyncAttempt;
@@ -51,9 +51,9 @@ class TelemetrySyncService extends ChangeNotifier {
 
     // Listen to connectivity changes
     _connectivitySubscription = _connectivity.onConnectivityChanged.listen((
-      result,
+      results,
     ) {
-      if (result != ConnectivityResult.none) {
+      if (results.isNotEmpty && !results.contains(ConnectivityResult.none)) {
         // Network is available, trigger sync
         syncNow();
       }
@@ -123,8 +123,9 @@ class TelemetrySyncService extends ChangeNotifier {
     }
 
     // Check network connectivity
-    final connectivityResult = await _connectivity.checkConnectivity();
-    if (connectivityResult == ConnectivityResult.none) {
+    final connectivityResults = await _connectivity.checkConnectivity();
+    if (connectivityResults.contains(ConnectivityResult.none) ||
+        connectivityResults.isEmpty) {
       if (kDebugMode) {
         print('[TelemetrySyncService] No network connection');
       }
