@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -23,7 +24,18 @@ class HttpConnection implements DeviceConnection {
   final _dataController = StreamController<RaceboxData>.broadcast();
   final _errorController = StreamController<String>.broadcast();
 
-  HttpConnection({this.simulatorUrl = 'http://localhost:8090'});
+  /// Get the default simulator URL based on platform
+  /// Android emulators use 10.0.2.2 to access host machine
+  /// iOS simulators and other platforms use localhost
+  static String getDefaultSimulatorUrl() {
+    if (Platform.isAndroid) {
+      return 'http://10.0.2.2:8090';
+    }
+    return 'http://localhost:8090';
+  }
+
+  HttpConnection({String? simulatorUrl})
+    : simulatorUrl = simulatorUrl ?? getDefaultSimulatorUrl();
 
   @override
   Stream<List<RaceboxDevice>> get devicesStream => _devicesController.stream;
