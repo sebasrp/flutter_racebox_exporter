@@ -3,14 +3,15 @@ import '../racebox_ble/racebox_service.dart';
 import '../racebox_ble/models/racebox_data.dart';
 import '../racebox_ble/connection/racebox_device.dart';
 import '../racebox_ble/connection/device_connection_interface.dart';
-import '../database/telemetry_database.dart';
+import '../database/telemetry_storage.dart';
+import '../database/telemetry_storage_factory.dart';
 import '../services/telemetry_sync_service.dart';
 import '../services/avt_api_client.dart';
 
 /// Provider for managing Racebox service state
 class RaceboxProvider extends ChangeNotifier {
   final RaceboxService _service = RaceboxService();
-  final TelemetryDatabase _database = TelemetryDatabase();
+  final TelemetryStorage _storage = TelemetryStorageFactory.create();
   late final TelemetrySyncService _syncService;
 
   List<RaceboxDevice> _devices = [];
@@ -22,9 +23,9 @@ class RaceboxProvider extends ChangeNotifier {
   int _recordedCount = 0;
 
   RaceboxProvider() {
-    // Initialize sync service
+    // Initialize sync service with platform-specific storage
     _syncService = TelemetrySyncService(
-      database: _database,
+      storage: _storage,
       apiClient: AvtApiClient(),
     );
 
@@ -117,10 +118,10 @@ class RaceboxProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Save data to database
+  /// Save data to storage
   Future<void> _saveDataToDatabase(RaceboxData data) async {
     try {
-      await _database.insertTelemetry(
+      await _storage.insertTelemetry(
         data,
         deviceId: connectedDevice?.name,
         sessionId: _syncService.currentSessionId,
@@ -190,7 +191,7 @@ class RaceboxProvider extends ChangeNotifier {
     _service.dispose();
     _syncService.removeListener(_onSyncServiceChanged);
     _syncService.dispose();
-    _database.close();
+    _storage.close();
     super.dispose();
   }
 }

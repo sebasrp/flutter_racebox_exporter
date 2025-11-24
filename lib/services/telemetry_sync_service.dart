@@ -2,12 +2,13 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:uuid/uuid.dart';
-import '../database/telemetry_database.dart';
+import '../database/telemetry_storage.dart';
+import '../database/telemetry_storage_factory.dart';
 import 'avt_api_client.dart';
 
 /// Service for syncing telemetry data to AVT backend
 class TelemetrySyncService extends ChangeNotifier {
-  final TelemetryDatabase _database;
+  final TelemetryStorage _storage;
   final AvtApiClient _apiClient;
   final Connectivity _connectivity = Connectivity();
 
@@ -22,14 +23,21 @@ class TelemetrySyncService extends ChangeNotifier {
   String? _currentSessionId;
   String? _deviceId;
 
-  // Configuration
-  static const Duration syncInterval = Duration(seconds: 30);
+  // Configuration - platform-specific sync intervals
+  static Duration get syncInterval {
+    // Web: 5 seconds (aggressive sync, no persistence)
+    // Native: 30 seconds (batch efficiency, has persistence)
+    return TelemetryStorageFactory.isWebPlatform()
+        ? const Duration(seconds: 5)
+        : const Duration(seconds: 30);
+  }
+
   static const int batchSize = 100;
 
   TelemetrySyncService({
-    required TelemetryDatabase database,
+    TelemetryStorage? storage,
     required AvtApiClient apiClient,
-  }) : _database = database,
+  }) : _storage = storage ?? TelemetryStorageFactory.create(),
        _apiClient = apiClient {
     _initializeService();
   }
@@ -78,10 +86,10 @@ class TelemetrySyncService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Load sync statistics from database
+  /// Load sync statistics from storage
   Future<void> _loadSyncStats() async {
     try {
-      final stats = await _database.getSyncStats();
+      final stats = await _storage.getSyncStats();
       _pendingCount = stats['pending_count'] as int;
       _lastSuccessfulSync = stats['last_sync'] as DateTime?;
       notifyListeners();
@@ -141,7 +149,7 @@ class TelemetrySyncService extends ChangeNotifier {
 
     try {
       // Get pending records
-      final pendingRecords = await _database.getPendingTelemetry(
+      final pendingRecords = await _storage.getPendingTelemetry(
         limit: batchSize,
       );
 
@@ -175,7 +183,7 @@ class TelemetrySyncService extends ChangeNotifier {
             .toList();
 
         // Mark records as synced
-        final updatedCount = await _database.markAsSynced(
+        final updatedCount = await _storage.markAsSynced(
           localIds.take(result.savedIds.length).toList(),
           result.savedIds,
         );
@@ -189,7 +197,7 @@ class TelemetrySyncService extends ChangeNotifier {
         _lastSuccessfulSync = DateTime.now();
 
         // Update pending count
-        _pendingCount = await _database.getPendingCount();
+        _pendingCount = await _storage.getPendingCount();
 
         // If there are more pending records, schedule immediate sync
         if (_pendingCount > 0) {
@@ -216,14 +224,14 @@ class TelemetrySyncService extends ChangeNotifier {
 
   /// Update pending count
   Future<void> updatePendingCount() async {
-    _pendingCount = await _database.getPendingCount();
+    _pendingCount = await _storage.getPendingCount();
     notifyListeners();
   }
 
   /// Clean up old synced records
   Future<int> cleanupOldRecords({int days = 7}) async {
     try {
-      final deletedCount = await _database.deleteSyncedOlderThan(days);
+      final deletedCount = await _storage.deleteSyncedOlderThan(days);
       if (kDebugMode) {
         print('[TelemetrySyncService] Deleted $deletedCount old records');
       }
