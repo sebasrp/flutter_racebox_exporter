@@ -40,8 +40,13 @@ class SimulatorHttpServer {
         .addMiddleware(logRequests())
         .addHandler(router.call);
 
-    _server = await shelf_io.serve(handler, 'localhost', port);
-    print('[✓] HTTP server listening on http://localhost:$port');
+    // Bind to 0.0.0.0 to allow connections from Android emulator (10.0.2.2)
+    // and other network interfaces, not just localhost
+    _server = await shelf_io.serve(handler, '0.0.0.0', port);
+    print('[✓] HTTP server listening on http://0.0.0.0:$port');
+    print('[i] Accessible from:');
+    print('    - localhost: http://localhost:$port');
+    print('    - Android emulator: http://10.0.2.2:$port');
   }
 
   Future<void> stop() async {
