@@ -10,7 +10,27 @@ import 'package:logger/logger.dart';
 /// Configuration for AVT API
 class AvtApiConfig {
   static const String urlKey = 'avt_service_url';
-  static const String defaultUrl = 'http://localhost:8080';
+
+  /// Get the default AVT service URL based on platform
+  /// Android emulators use 10.0.2.2 to access host machine
+  /// Web and other platforms use localhost
+  static String get defaultUrl {
+    // Web platform always uses localhost
+    if (kIsWeb) {
+      return 'http://localhost:8080';
+    }
+    // Android emulators need special IP to reach host
+    try {
+      if (Platform.isAndroid) {
+        return 'http://10.0.2.2:8080';
+      }
+    } catch (_) {
+      // Platform check failed (shouldn't happen but handle gracefully)
+    }
+    // Default for iOS and other platforms
+    return 'http://localhost:8080';
+  }
+
   static const Duration timeout = Duration(seconds: 30);
   static const int maxRetries = 3;
 }
