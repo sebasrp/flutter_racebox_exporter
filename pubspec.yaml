@@ -73,6 +73,9 @@ dependencies:
   # Logging
   logger: ^2.0.0
 
+  # Cross-platform compression (works on web, mobile, desktop)
+  archive: ^3.6.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

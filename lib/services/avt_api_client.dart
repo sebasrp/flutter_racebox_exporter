@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:logger/logger.dart';
+import 'package:archive/archive.dart';
 
 /// Configuration for AVT API
 class AvtApiConfig {
@@ -185,19 +186,36 @@ class AvtApiClient {
         final uncompressedBytes = utf8.encode(jsonBody);
         final uncompressedSize = uncompressedBytes.length;
 
-        // Compress with gzip
-        final compressedBytes = gzip.encode(uncompressedBytes);
-        final compressedSize = compressedBytes.length;
+        // Compress with gzip using archive package (works on all platforms including web)
+        final compressedBytes = GZipEncoder().encode(uncompressedBytes);
+        final compressedSize = compressedBytes?.length ?? uncompressedSize;
+
+        // Use compressed data if compression was successful
+        final bodyBytes = compressedBytes ?? uncompressedBytes;
+        final useCompression = compressedBytes != null;
 
         // Update compression statistics
-        _totalUncompressedBytes += uncompressedSize;
-        _totalCompressedBytes += compressedSize;
-        _compressionCount++;
+        if (useCompression) {
+          _totalUncompressedBytes += uncompressedSize;
+          _totalCompressedBytes += compressedSize;
+          _compressionCount++;
+        }
 
-        final compressionRatio =
-            ((1 - (compressedSize / uncompressedSize)) * 100).toStringAsFixed(
-              1,
-            );
+        final compressionRatio = useCompression
+            ? ((1 - (compressedSize / uncompressedSize)) * 100).toStringAsFixed(
+                1,
+              )
+            : '0.0';
+
+        final headers = {
+          'Content-Type': 'application/json',
+          'X-Request-ID': requestId,
+        };
+
+        // Add Content-Encoding header if compression was used
+        if (useCompression) {
+          headers['Content-Encoding'] = 'gzip';
+        }
 
         _logger.d(
           'Uploading ${apiData.length} records: '
@@ -213,12 +231,6 @@ class AvtApiClient {
           );
         }
 
-        final headers = {
-          'Content-Type': 'application/json',
-          'Content-Encoding': 'gzip',
-          'X-Request-ID': requestId,
-        };
-
         // Add batch ID header for server-side idempotency if provided
         if (batchId != null) {
           headers['X-Batch-ID'] = batchId;
@@ -228,7 +240,7 @@ class AvtApiClient {
             .post(
               Uri.parse('$_baseUrl/api/telemetry/batch'),
               headers: headers,
-              body: compressedBytes,
+              body: bodyBytes,
             )
             .timeout(AvtApiConfig.timeout);
 
@@ -324,16 +336,26 @@ class AvtApiClient {
   /// Test connection to AVT service
   Future<bool> testConnection() async {
     try {
+      final url = '$_baseUrl/api/v1/health';
+      if (kDebugMode) {
+        print('[AvtApiClient] Testing connection to: $url');
+      }
+
       final response = await _httpClient
-          .get(Uri.parse('$_baseUrl/api/telemetry'))
+          .get(Uri.parse(url))
           .timeout(const Duration(seconds: 5));
 
-      // We expect 405 Method Not Allowed since GET is not supported
-      // This still confirms the endpoint exists
-      return response.statusCode == 405 || response.statusCode == 200;
+      if (kDebugMode) {
+        print('[AvtApiClient] Response status: ${response.statusCode}');
+        print('[AvtApiClient] Response body: ${response.body}');
+      }
+
+      // Health endpoint should return 200 OK
+      return response.statusCode == 200;
     } catch (e) {
       if (kDebugMode) {
         print('[AvtApiClient] Connection test failed: $e');
+        print('[AvtApiClient] Base URL: $_baseUrl');
       }
       return false;
     }
