@@ -68,8 +68,9 @@ class NetworkMonitor {
 
       _logger.d('🏓 Pinging health endpoint: $uri');
 
-      final response =
-          await client.get(uri).timeout(const Duration(seconds: 5));
+      final response = await client
+          .get(uri)
+          .timeout(const Duration(seconds: 5));
 
       stopwatch.stop();
       final latency = stopwatch.elapsedMilliseconds;

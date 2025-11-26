@@ -170,9 +170,9 @@ class MotionSection extends StatelessWidget {
             Text(
               value.toStringAsFixed(2),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
             ),
           ],
         ),
