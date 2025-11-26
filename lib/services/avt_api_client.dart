@@ -76,9 +76,7 @@ class AvtApiClient {
       _baseUrl =
           prefs.getString(AvtApiConfig.urlKey) ?? AvtApiConfig.defaultUrl;
     } catch (e) {
-      if (kDebugMode) {
-        print('[AvtApiClient] Error loading config: $e');
-      }
+      _logger.w('Error loading config: $e');
       // Keep using default URL on error
       _baseUrl = AvtApiConfig.defaultUrl;
     }
@@ -285,9 +283,7 @@ class AvtApiClient {
         );
 
         if (kDebugMode && apiData.isNotEmpty) {
-          print(
-            '[AvtApiClient] First record timestamp: ${apiData.first['timestamp']}',
-          );
+          _logger.d('First record timestamp: ${apiData.first['timestamp']}');
         }
 
         // Add batch ID header for server-side idempotency if provided
@@ -371,9 +367,7 @@ class AvtApiClient {
             _logger.e(error);
 
             if (kDebugMode) {
-              print(
-                '[AvtApiClient] Parse error on successful response: $error',
-              );
+              _logger.e('Parse error on successful response: $error');
             }
 
             // Don't retry on parse errors - this is a client-side issue
@@ -410,7 +404,7 @@ class AvtApiClient {
           } catch (e) {
             errorDetails = 'Failed to decode response: $e';
             if (kDebugMode) {
-              print('[AvtApiClient] Error decoding error response: $e');
+              _logger.e('Error decoding error response: $e');
             }
           }
 
@@ -420,7 +414,7 @@ class AvtApiClient {
           );
 
           if (kDebugMode) {
-            print('[AvtApiClient] Full response: $errorDetails');
+            _logger.d('Full response: $errorDetails');
           }
 
           // Don't retry on client errors (4xx)
@@ -466,7 +460,7 @@ class AvtApiClient {
     try {
       final url = '$_baseUrl/api/v1/health';
       if (kDebugMode) {
-        print('[AvtApiClient] Testing connection to: $url');
+        _logger.d('Testing connection to: $url');
       }
 
       final response = await _httpClient
@@ -474,16 +468,16 @@ class AvtApiClient {
           .timeout(const Duration(seconds: 5));
 
       if (kDebugMode) {
-        print('[AvtApiClient] Response status: ${response.statusCode}');
-        print('[AvtApiClient] Response body: ${response.body}');
+        _logger.d('Response status: ${response.statusCode}');
+        _logger.d('Response body: ${response.body}');
       }
 
       // Health endpoint should return 200 OK
       return response.statusCode == 200;
     } catch (e) {
       if (kDebugMode) {
-        print('[AvtApiClient] Connection test failed: $e');
-        print('[AvtApiClient] Base URL: $_baseUrl');
+        _logger.e('Connection test failed: $e');
+        _logger.d('Base URL: $_baseUrl');
       }
       return false;
     }
