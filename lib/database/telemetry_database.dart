@@ -203,9 +203,8 @@ class TelemetryDatabase {
   /// Delete synced records older than specified days
   Future<int> deleteSyncedOlderThan(int days) async {
     final db = await database;
-    final cutoffTime = DateTime.now()
-        .subtract(Duration(days: days))
-        .millisecondsSinceEpoch;
+    final cutoffTime =
+        DateTime.now().subtract(Duration(days: days)).millisecondsSinceEpoch;
 
     return await db.delete(
       'telemetry',

@@ -64,7 +64,7 @@ class AvtApiClient {
   int _compressionCount = 0;
 
   AvtApiClient({http.Client? httpClient})
-    : _httpClient = httpClient ?? http.Client() {
+      : _httpClient = httpClient ?? http.Client() {
     // Load config deferred to avoid initialization issues
     Future.microtask(() => _loadConfig());
   }
@@ -303,8 +303,8 @@ class AvtApiClient {
           try {
             // Handle potentially compressed response
             List<int> bodyBytes = response.bodyBytes;
-            final contentEncoding = response.headers['content-encoding']
-                ?.toLowerCase();
+            final contentEncoding =
+                response.headers['content-encoding']?.toLowerCase();
 
             if (contentEncoding == 'gzip') {
               // Use archive package decoder for cross-platform compatibility
@@ -318,14 +318,12 @@ class AvtApiClient {
             final responseData = jsonDecode(bodyText);
 
             // Check if this was a duplicate batch (idempotency)
-            final isDuplicate =
-                responseData['message']?.toString().contains(
-                  'already processed',
-                ) ??
+            final isDuplicate = responseData['message']?.toString().contains(
+                      'already processed',
+                    ) ??
                 false;
 
-            final ids =
-                (responseData['ids'] as List<dynamic>?)
+            final ids = (responseData['ids'] as List<dynamic>?)
                     ?.map((id) => id as int)
                     .toList() ??
                 [];
@@ -351,8 +349,8 @@ class AvtApiClient {
             String bodyText;
             try {
               List<int> bodyBytes = response.bodyBytes;
-              final contentEncoding = response.headers['content-encoding']
-                  ?.toLowerCase();
+              final contentEncoding =
+                  response.headers['content-encoding']?.toLowerCase();
 
               if (contentEncoding == 'gzip') {
                 bodyBytes = GZipDecoder().decodeBytes(bodyBytes);
@@ -382,8 +380,8 @@ class AvtApiClient {
           String errorDetails;
           try {
             List<int> bodyBytes = response.bodyBytes;
-            final contentEncoding = response.headers['content-encoding']
-                ?.toLowerCase();
+            final contentEncoding =
+                response.headers['content-encoding']?.toLowerCase();
 
             if (contentEncoding == 'gzip') {
               bodyBytes = GZipDecoder().decodeBytes(bodyBytes);
