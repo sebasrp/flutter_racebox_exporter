@@ -1,5 +1,7 @@
 # Flutter Racebox Exporter
 
+[![CI](https://github.com/YOUR_USERNAME/flutter_racebox_exporter/workflows/CI/badge.svg)](https://github.com/YOUR_USERNAME/flutter_racebox_exporter/actions/workflows/ci.yml)
+
 A Flutter application that connects to Racebox devices (Mini, Mini S, and Micro) via Bluetooth Low Energy (BLE) to display real-time telemetry data including GPS, accelerometer, and gyroscope information.
 
 ## Features
