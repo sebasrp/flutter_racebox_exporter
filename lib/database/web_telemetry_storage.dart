@@ -159,10 +159,37 @@ class WebTelemetryStorage implements TelemetryStorage {
 
   @override
   Future<int> markAsSynced(List<String> localIds, List<int> serverIds) async {
-    // For web storage, data is removed from buffer on flush
-    // This method is called by sync service but is a no-op for web
-    // since we handle sync directly in _handleBufferFlush
-    return localIds.length;
+    if (kDebugMode) {
+      print(
+        '[WebTelemetryStorage] 🔵 markAsSynced called with ${localIds.length} IDs',
+      );
+    }
+
+    // Remove the successfully synced records from the buffer
+    int removedCount = 0;
+    for (final localId in localIds) {
+      // Remove items matching this local_id from the buffer
+      _buffer.removeWhere((item) {
+        if (item['local_id'] == localId) {
+          removedCount++;
+          return true;
+        }
+        return false;
+      });
+    }
+
+    // Update statistics
+    _totalSynced += removedCount;
+    _pendingCount = _buffer.size;
+    _lastSync = DateTime.now();
+
+    if (kDebugMode) {
+      print(
+        '[WebTelemetryStorage] ✅ Removed $removedCount records from buffer, ${_buffer.size} remaining',
+      );
+    }
+
+    return removedCount;
   }
 
   @override
