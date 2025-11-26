@@ -195,7 +195,20 @@ class BatchUploaderService {
       if (result.success) {
         // Mark records as uploaded
         final recordIds = records.map((r) => r['id'] as int).toList();
-        await database.markAsUploaded(recordIds, batchId);
+        _logger.d(
+          '📋 Marking ${recordIds.length} records as uploaded: $recordIds',
+        );
+
+        final markedCount = await database.markAsUploaded(recordIds, batchId);
+        _logger.i(
+          '✅ Marked $markedCount/${recordIds.length} records as uploaded',
+        );
+
+        if (markedCount != recordIds.length) {
+          _logger.w(
+            '⚠️ Expected to mark ${recordIds.length} records but only marked $markedCount',
+          );
+        }
 
         // Mark batch as processed for client-side idempotency
         await database.markBatchProcessed(

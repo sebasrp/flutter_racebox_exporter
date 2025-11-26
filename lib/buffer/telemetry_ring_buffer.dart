@@ -211,6 +211,24 @@ class TelemetryRingBuffer<T> {
     });
   }
 
+  /// Remove items matching a predicate
+  ///
+  /// [test] - Function to test each item, returns true to remove
+  /// Returns the number of items removed
+  int removeWhere(bool Function(T item) test) {
+    return synchronized(() {
+      final initialSize = _buffer.length;
+      _buffer.removeWhere(test);
+      final removed = initialSize - _buffer.length;
+
+      if (removed > 0) {
+        _logger.d('Removed $removed items from buffer');
+      }
+
+      return removed;
+    });
+  }
+
   /// Thread-safe execution of operations
   R synchronized<R>(R Function() operation) {
     // Note: Dart is single-threaded, but we use this pattern for:

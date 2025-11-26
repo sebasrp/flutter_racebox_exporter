@@ -221,9 +221,41 @@ class TelemetryQueueDatabase {
     if (recordIds.isEmpty) return 0;
 
     final db = await database;
-    final batch = db.batch();
     final uploadedAt = DateTime.now().millisecondsSinceEpoch;
 
+    _logger.d(
+      '📝 Attempting to mark ${recordIds.length} records as uploaded: $recordIds',
+    );
+
+    // Verify records exist before updating
+    final existingRecords = await db.query(
+      'telemetry_queue',
+      columns: ['id', 'uploaded_at'],
+      where: 'id IN (${recordIds.map((_) => '?').join(',')})',
+      whereArgs: recordIds,
+    );
+
+    _logger.d(
+      '📊 Found ${existingRecords.length}/${recordIds.length} records in database',
+    );
+
+    if (existingRecords.length != recordIds.length) {
+      final existingIds = existingRecords.map((r) => r['id'] as int).toSet();
+      final missingIds = recordIds
+          .where((id) => !existingIds.contains(id))
+          .toList();
+      _logger.w('⚠️ Missing record IDs: $missingIds');
+    }
+
+    // Check if any are already uploaded
+    final alreadyUploaded = existingRecords
+        .where((r) => r['uploaded_at'] != null)
+        .length;
+    if (alreadyUploaded > 0) {
+      _logger.w('⚠️ $alreadyUploaded records already marked as uploaded');
+    }
+
+    final batch = db.batch();
     for (final id in recordIds) {
       batch.update(
         'telemetry_queue',
@@ -238,7 +270,17 @@ class TelemetryQueueDatabase {
         .where((r) => r != null && (r as int) > 0)
         .length;
 
-    _logger.d('Marked $updatedCount records as uploaded (batch: $batchId)');
+    _logger.d(
+      '✅ Marked $updatedCount/${recordIds.length} records as uploaded (batch: $batchId)',
+    );
+
+    // Verify the update worked
+    if (updatedCount != recordIds.length) {
+      _logger.w(
+        '⚠️ Update mismatch: expected ${recordIds.length}, got $updatedCount',
+      );
+    }
+
     return updatedCount;
   }
 
