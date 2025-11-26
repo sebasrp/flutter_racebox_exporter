@@ -37,8 +37,9 @@ class MockNetworkMonitor extends NetworkMonitor {
 }
 
 void main() {
-  // Initialize FFI for testing
+  // Initialize Flutter test bindings and FFI for testing
   setUpAll(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   });
@@ -47,8 +48,11 @@ void main() {
     late TelemetryQueueDatabase database;
 
     setUp(() async {
-      // Initialize database
-      database = TelemetryQueueDatabase();
+      // Initialize database with unique name for test isolation
+      final testDbName =
+          'test_idempotency_${DateTime.now().millisecondsSinceEpoch}.db';
+      database = TelemetryQueueDatabase(testDatabaseName: testDbName);
+      await database.database; // Initialize database
       await database.reset();
     });
 

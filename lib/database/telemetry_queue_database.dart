@@ -12,17 +12,30 @@ import 'package:logger/logger.dart';
 /// - Idempotency tracking for uploaded batches
 /// - Upload statistics for monitoring
 class TelemetryQueueDatabase {
-  static final TelemetryQueueDatabase _instance =
-      TelemetryQueueDatabase._internal();
+  static TelemetryQueueDatabase? _instance;
   static Database? _database;
   static bool _ffiInitialized = false;
   final Logger _logger = Logger();
+  static String? _testDatabaseName;
 
-  factory TelemetryQueueDatabase() {
-    return _instance;
+  factory TelemetryQueueDatabase({String? testDatabaseName}) {
+    if (testDatabaseName != null) {
+      _testDatabaseName = testDatabaseName;
+      _instance = null;
+      _database = null;
+    }
+    _instance ??= TelemetryQueueDatabase._internal();
+    return _instance!;
   }
 
   TelemetryQueueDatabase._internal();
+
+  /// Reset the singleton instance (for testing only)
+  static void resetInstance() {
+    _instance = null;
+    _database = null;
+    _testDatabaseName = null;
+  }
 
   /// Initialize FFI for desktop platforms
   static void _initializeFfi() {
@@ -48,7 +61,8 @@ class TelemetryQueueDatabase {
       _initializeFfi();
 
       final databasesPath = await getDatabasesPath();
-      final path = join(databasesPath, 'telemetry_queue.db');
+      final dbName = _testDatabaseName ?? 'telemetry_queue.db';
+      final path = join(databasesPath, dbName);
 
       _logger.i('Initializing telemetry queue database at: $path');
 
@@ -507,6 +521,7 @@ class TelemetryQueueDatabase {
     if (_database != null) {
       await _database!.close();
       _database = null;
+      _instance = null;
       _logger.i('Telemetry queue database closed');
     }
   }

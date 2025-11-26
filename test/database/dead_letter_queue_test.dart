@@ -14,7 +14,10 @@ void main() {
     late TelemetryQueueDatabase database;
 
     setUp(() async {
-      database = TelemetryQueueDatabase();
+      // Use unique database name for each test run
+      final testDbName = 'test_dlq_${DateTime.now().millisecondsSinceEpoch}.db';
+      database = TelemetryQueueDatabase(testDatabaseName: testDbName);
+      await database.database; // Initialize database
       await database.reset();
     });
 

@@ -7,10 +7,33 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'dart:convert';
+import 'package:connectivity_plus/connectivity_plus.dart';
+
+/// Mock NetworkMonitor that always returns excellent quality for testing
+class MockNetworkMonitor extends NetworkMonitor {
+  MockNetworkMonitor() : super(baseUrl: 'https://api.example.com');
+
+  @override
+  Future<NetworkQuality> getCurrentQuality() async {
+    return NetworkQuality.excellent;
+  }
+
+  @override
+  Future<int> measureLatency() async {
+    return 50; // Excellent latency
+  }
+
+  @override
+  Stream<List<ConnectivityResult>> get onConnectivityChanged {
+    // Return a stream that never emits for testing
+    return Stream.empty();
+  }
+}
 
 void main() {
-  // Initialize FFI for testing
+  // Initialize Flutter test bindings and FFI for testing
   setUpAll(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   });
@@ -22,8 +45,11 @@ void main() {
     late BatchUploaderService uploader;
 
     setUp(() async {
-      // Initialize database
-      database = TelemetryQueueDatabase();
+      // Initialize database with unique name for test isolation
+      final testDbName =
+          'test_batch_uploader_${DateTime.now().millisecondsSinceEpoch}.db';
+      database = TelemetryQueueDatabase(testDatabaseName: testDbName);
+      await database.database; // Initialize database
       await database.reset();
 
       // Create mock HTTP client that always succeeds
@@ -41,15 +67,8 @@ void main() {
       // Initialize API client with mock
       apiClient = AvtApiClient(httpClient: mockClient);
 
-      // Initialize network monitor with mock that returns excellent quality
-      final healthMockClient = MockClient((request) async {
-        return http.Response('{"status":"healthy"}', 200);
-      });
-
-      networkMonitor = NetworkMonitor(
-        baseUrl: 'https://api.example.com',
-        httpClient: healthMockClient,
-      );
+      // Initialize mock network monitor that always returns excellent quality
+      networkMonitor = MockNetworkMonitor();
 
       // Create uploader service
       uploader = BatchUploaderService(
@@ -83,11 +102,11 @@ void main() {
         await database.insertBatch([
           {
             'timestamp': DateTime.now().toIso8601String(),
-            'data_json': {'test': 'data1'},
+            'data_json': jsonEncode({'test': 'data1'}),
           },
           {
             'timestamp': DateTime.now().toIso8601String(),
-            'data_json': {'test': 'data2'},
+            'data_json': jsonEncode({'test': 'data2'}),
           },
         ]);
 
@@ -103,7 +122,7 @@ void main() {
         await database.insertBatch([
           {
             'timestamp': now.toIso8601String(),
-            'data_json': {'test': 'data'},
+            'data_json': jsonEncode({'test': 'data'}),
           },
         ]);
 
@@ -119,11 +138,11 @@ void main() {
         await database.insertBatch([
           {
             'timestamp': DateTime.now().toIso8601String(),
-            'data_json': {'test': 'data1'},
+            'data_json': jsonEncode({'test': 'data1'}),
           },
           {
             'timestamp': DateTime.now().toIso8601String(),
-            'data_json': {'test': 'data2'},
+            'data_json': jsonEncode({'test': 'data2'}),
           },
         ]);
 
@@ -167,7 +186,7 @@ void main() {
         await database.insertBatch([
           {
             'timestamp': DateTime.now().toIso8601String(),
-            'data_json': {
+            'data_json': jsonEncode({
               'itow': 1000,
               'recorded_at': DateTime.now().millisecondsSinceEpoch,
               'latitude': 1.234,
@@ -194,7 +213,7 @@ void main() {
               'is_charging': 0,
               'time_accuracy': 100,
               'validity_flags': 255,
-            },
+            }),
           },
         ]);
 
@@ -235,7 +254,7 @@ void main() {
         await database.insertBatch([
           {
             'timestamp': DateTime.now().toIso8601String(),
-            'data_json': {
+            'data_json': jsonEncode({
               'itow': 1000,
               'recorded_at': DateTime.now().millisecondsSinceEpoch,
               'latitude': 1.234,
@@ -262,7 +281,7 @@ void main() {
               'is_charging': 0,
               'time_accuracy': 100,
               'validity_flags': 255,
-            },
+            }),
           },
         ]);
 
