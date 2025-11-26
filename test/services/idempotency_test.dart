@@ -13,8 +13,8 @@ class MockNetworkMonitor extends NetworkMonitor {
   final NetworkQuality _quality;
 
   MockNetworkMonitor({NetworkQuality quality = NetworkQuality.excellent})
-      : _quality = quality,
-        super(baseUrl: 'http://localhost:8080');
+    : _quality = quality,
+      super(baseUrl: 'http://localhost:8080');
 
   @override
   Future<NetworkQuality> getCurrentQuality() async {

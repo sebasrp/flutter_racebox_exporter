@@ -183,8 +183,9 @@ class ConnectionSection extends StatelessWidget {
     final sourceIcon = device.source == DeviceSource.bluetooth
         ? Icons.bluetooth
         : Icons.computer;
-    final sourceText =
-        device.source == DeviceSource.bluetooth ? 'Bluetooth' : 'Simulator';
+    final sourceText = device.source == DeviceSource.bluetooth
+        ? 'Bluetooth'
+        : 'Simulator';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),

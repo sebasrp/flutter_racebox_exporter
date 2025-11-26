@@ -58,9 +58,7 @@ class StatusSection extends StatelessWidget {
                         const SizedBox(width: 4),
                         Text(
                           'Charging',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
+                          style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: Colors.green[700]),
                         ),
                       ],
@@ -133,9 +131,7 @@ class StatusSection extends StatelessWidget {
                           Expanded(
                             child: Text(
                               'Time sync requires GPS fix. Take device outdoors and wait for satellites.',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
+                              style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(color: Colors.orange[700]),
                             ),
                           ),
@@ -167,9 +163,9 @@ class StatusSection extends StatelessWidget {
         Text(
           value,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: valueColor,
-              ),
+            fontWeight: FontWeight.bold,
+            color: valueColor,
+          ),
         ),
       ],
     );

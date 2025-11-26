@@ -184,8 +184,9 @@ class BatchUploaderService {
       // data_json is stored as a JSON string, so we need to parse it
       final batch = records
           .map(
-            (record) => jsonDecode(record['data_json'] as String)
-                as Map<String, dynamic>,
+            (record) =>
+                jsonDecode(record['data_json'] as String)
+                    as Map<String, dynamic>,
           )
           .toList();
 

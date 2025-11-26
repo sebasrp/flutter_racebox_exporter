@@ -323,8 +323,9 @@ void main() {
 
       // Manually update uploaded_at to be old
       final database = await db.database;
-      final oldTimestamp =
-          DateTime.now().subtract(Duration(days: 10)).millisecondsSinceEpoch;
+      final oldTimestamp = DateTime.now()
+          .subtract(Duration(days: 10))
+          .millisecondsSinceEpoch;
 
       await database.update(
         'telemetry_queue',
@@ -338,8 +339,9 @@ void main() {
     });
 
     test('should cleanup old batch records', () async {
-      final oldTimestamp =
-          DateTime.now().subtract(Duration(days: 10)).millisecondsSinceEpoch;
+      final oldTimestamp = DateTime.now()
+          .subtract(Duration(days: 10))
+          .millisecondsSinceEpoch;
 
       final database = await db.database;
       await database.insert('upload_batches', {
@@ -353,8 +355,9 @@ void main() {
     });
 
     test('should cleanup old statistics', () async {
-      final oldTimestamp =
-          DateTime.now().subtract(Duration(days: 10)).millisecondsSinceEpoch;
+      final oldTimestamp = DateTime.now()
+          .subtract(Duration(days: 10))
+          .millisecondsSinceEpoch;
 
       final database = await db.database;
       await database.insert('upload_stats', {
