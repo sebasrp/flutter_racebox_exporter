@@ -198,9 +198,8 @@ class TelemetryQueueDatabase {
     }
 
     final results = await batch.commit(noResult: false);
-    final insertedCount = results
-        .where((r) => r != null && (r as int) > 0)
-        .length;
+    final insertedCount =
+        results.where((r) => r != null && (r as int) > 0).length;
 
     _logger.d('Inserted $insertedCount records into telemetry queue');
     return insertedCount;
@@ -255,16 +254,14 @@ class TelemetryQueueDatabase {
 
     if (existingRecords.length != recordIds.length) {
       final existingIds = existingRecords.map((r) => r['id'] as int).toSet();
-      final missingIds = recordIds
-          .where((id) => !existingIds.contains(id))
-          .toList();
+      final missingIds =
+          recordIds.where((id) => !existingIds.contains(id)).toList();
       _logger.w('⚠️ Missing record IDs: $missingIds');
     }
 
     // Check if any are already uploaded
-    final alreadyUploaded = existingRecords
-        .where((r) => r['uploaded_at'] != null)
-        .length;
+    final alreadyUploaded =
+        existingRecords.where((r) => r['uploaded_at'] != null).length;
     if (alreadyUploaded > 0) {
       _logger.w('⚠️ $alreadyUploaded records already marked as uploaded');
     }
@@ -280,9 +277,8 @@ class TelemetryQueueDatabase {
     }
 
     final results = await batch.commit(noResult: false);
-    final updatedCount = results
-        .where((r) => r != null && (r as int) > 0)
-        .length;
+    final updatedCount =
+        results.where((r) => r != null && (r as int) > 0).length;
 
     _logger.d(
       '✅ Marked $updatedCount/${recordIds.length} records as uploaded (batch: $batchId)',
@@ -316,9 +312,8 @@ class TelemetryQueueDatabase {
     }
 
     final results = await batch.commit(noResult: false);
-    final updatedCount = results
-        .where((r) => r != null && (r as int) > 0)
-        .length;
+    final updatedCount =
+        results.where((r) => r != null && (r as int) > 0).length;
 
     _logger.d('Incremented retry count for $updatedCount records');
     return updatedCount;
@@ -330,9 +325,8 @@ class TelemetryQueueDatabase {
   /// Returns the number of records deleted
   Future<int> deleteUploadedOlderThan(int days) async {
     final db = await database;
-    final cutoffTime = DateTime.now()
-        .subtract(Duration(days: days))
-        .millisecondsSinceEpoch;
+    final cutoffTime =
+        DateTime.now().subtract(Duration(days: days)).millisecondsSinceEpoch;
 
     final deletedCount = await db.delete(
       'telemetry_queue',
@@ -373,12 +367,15 @@ class TelemetryQueueDatabase {
   }) async {
     final db = await database;
 
-    await db.insert('upload_batches', {
-      'batch_id': batchId,
-      'record_count': recordCount,
-      'uploaded_at': DateTime.now().millisecondsSinceEpoch,
-      'server_response': serverResponse,
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+        'upload_batches',
+        {
+          'batch_id': batchId,
+          'record_count': recordCount,
+          'uploaded_at': DateTime.now().millisecondsSinceEpoch,
+          'server_response': serverResponse,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace);
 
     _logger.d('Marked batch $batchId as processed ($recordCount records)');
   }
@@ -444,9 +441,8 @@ class TelemetryQueueDatabase {
     );
     final totalRecent = recentStatsResult.first['total'] as int;
     final successfulRecent = recentStatsResult.first['successful'] as int? ?? 0;
-    final successRate = totalRecent > 0
-        ? (successfulRecent / totalRecent * 100)
-        : 0.0;
+    final successRate =
+        totalRecent > 0 ? (successfulRecent / totalRecent * 100) : 0.0;
 
     return {
       'unsent_count': unsentCount,
@@ -464,9 +460,8 @@ class TelemetryQueueDatabase {
   /// Returns list of upload stats
   Future<List<Map<String, dynamic>>> getUploadStats({int hours = 24}) async {
     final db = await database;
-    final cutoffTime = DateTime.now()
-        .subtract(Duration(hours: hours))
-        .millisecondsSinceEpoch;
+    final cutoffTime =
+        DateTime.now().subtract(Duration(hours: hours)).millisecondsSinceEpoch;
 
     return await db.query(
       'upload_stats',
@@ -482,9 +477,8 @@ class TelemetryQueueDatabase {
   /// Returns the number of records deleted
   Future<int> cleanupOldBatches(int days) async {
     final db = await database;
-    final cutoffTime = DateTime.now()
-        .subtract(Duration(days: days))
-        .millisecondsSinceEpoch;
+    final cutoffTime =
+        DateTime.now().subtract(Duration(days: days)).millisecondsSinceEpoch;
 
     final deletedCount = await db.delete(
       'upload_batches',
@@ -502,9 +496,8 @@ class TelemetryQueueDatabase {
   /// Returns the number of records deleted
   Future<int> cleanupOldStats(int days) async {
     final db = await database;
-    final cutoffTime = DateTime.now()
-        .subtract(Duration(days: days))
-        .millisecondsSinceEpoch;
+    final cutoffTime =
+        DateTime.now().subtract(Duration(days: days)).millisecondsSinceEpoch;
 
     final deletedCount = await db.delete(
       'upload_stats',
@@ -553,15 +546,18 @@ class TelemetryQueueDatabase {
 
     // Move each failed record to DLQ
     for (final record in failedRecords) {
-      batch.insert('dead_letter_queue', {
-        'original_id': record['id'],
-        'timestamp': record['timestamp'],
-        'data_json': record['data_json'],
-        'retry_count': record['retry_count'],
-        'created_at': record['created_at'],
-        'failed_at': now,
-        'last_error': lastError,
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      batch.insert(
+          'dead_letter_queue',
+          {
+            'original_id': record['id'],
+            'timestamp': record['timestamp'],
+            'data_json': record['data_json'],
+            'retry_count': record['retry_count'],
+            'created_at': record['created_at'],
+            'failed_at': now,
+            'last_error': lastError,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace);
 
       // Delete from main queue
       batch.delete(
@@ -679,9 +675,8 @@ class TelemetryQueueDatabase {
   /// Returns the number of records deleted
   Future<int> cleanupOldDeadLetterQueue(int days) async {
     final db = await database;
-    final cutoffTime = DateTime.now()
-        .subtract(Duration(days: days))
-        .millisecondsSinceEpoch;
+    final cutoffTime =
+        DateTime.now().subtract(Duration(days: days)).millisecondsSinceEpoch;
 
     final deletedCount = await db.delete(
       'dead_letter_queue',

@@ -123,9 +123,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Row(
                         children: [
                           ElevatedButton.icon(
-                            onPressed: _isTestingConnection
-                                ? null
-                                : _testConnection,
+                            onPressed:
+                                _isTestingConnection ? null : _testConnection,
                             icon: _isTestingConnection
                                 ? const SizedBox(
                                     width: 16,
@@ -222,9 +221,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Row(
                         children: [
                           ElevatedButton.icon(
-                            onPressed: syncService.isSyncing
-                                ? null
-                                : _triggerSync,
+                            onPressed:
+                                syncService.isSyncing ? null : _triggerSync,
                             icon: syncService.isSyncing
                                 ? const SizedBox(
                                     width: 16,

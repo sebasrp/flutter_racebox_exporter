@@ -35,11 +35,11 @@ class WebTelemetryStorage implements TelemetryStorage {
     AvtApiClient? apiClient,
     int bufferCapacity = 125,
     double flushThreshold = 0.8,
-  }) : _buffer = TelemetryRingBuffer<Map<String, dynamic>>(
-         capacity: bufferCapacity,
-         flushThreshold: flushThreshold,
-       ),
-       _apiClient = apiClient ?? AvtApiClient() {
+  })  : _buffer = TelemetryRingBuffer<Map<String, dynamic>>(
+          capacity: bufferCapacity,
+          flushThreshold: flushThreshold,
+        ),
+        _apiClient = apiClient ?? AvtApiClient() {
     // Set up auto-flush callback
     _buffer.onFlush = _handleBufferFlush;
 

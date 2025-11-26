@@ -29,11 +29,11 @@ class TelemetryRingBuffer<T> {
   /// [capacity] - Maximum number of items to store (default: 125 for ~5s at 25Hz)
   /// [flushThreshold] - Percentage full to trigger auto-flush (default: 0.8 = 80%)
   TelemetryRingBuffer({this.capacity = 125, this.flushThreshold = 0.8})
-    : assert(capacity > 0, 'Capacity must be positive'),
-      assert(
-        flushThreshold > 0 && flushThreshold <= 1.0,
-        'Flush threshold must be between 0 and 1',
-      ) {
+      : assert(capacity > 0, 'Capacity must be positive'),
+        assert(
+          flushThreshold > 0 && flushThreshold <= 1.0,
+          'Flush threshold must be between 0 and 1',
+        ) {
     _buffer = Queue<T>();
     _logger.d(
       'Ring buffer created: capacity=$capacity, flushThreshold=${(flushThreshold * 100).toInt()}%',

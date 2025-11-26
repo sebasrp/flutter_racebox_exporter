@@ -232,14 +232,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             const SizedBox(height: 16),
                             Text(
                               'Not Connected',
-                              style: Theme.of(context).textTheme.titleLarge
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
                                   ?.copyWith(color: Colors.grey[600]),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               'Scan and connect to a Racebox device to view telemetry',
                               textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.bodyMedium
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
                                   ?.copyWith(color: Colors.grey[500]),
                             ),
                           ],

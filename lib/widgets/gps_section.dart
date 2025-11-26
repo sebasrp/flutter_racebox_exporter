@@ -52,11 +52,11 @@ class GpsSection extends StatelessWidget {
                     children: [
                       Text(
                         gps.speed.toStringAsFixed(1),
-                        style: Theme.of(context).textTheme.displayLarge
-                            ?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
+                        style:
+                            Theme.of(context).textTheme.displayLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
                       ),
                       const Text('km/h', style: TextStyle(fontSize: 20)),
                     ],
@@ -169,8 +169,8 @@ class GpsSection extends StatelessWidget {
         Text(
           isValid ? 'Fix Valid' : 'No Fix',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: isValid ? Colors.green : Colors.red,
-          ),
+                color: isValid ? Colors.green : Colors.red,
+              ),
         ),
       ],
     );

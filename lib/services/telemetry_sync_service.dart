@@ -37,8 +37,8 @@ class TelemetrySyncService extends ChangeNotifier {
   TelemetrySyncService({
     TelemetryStorage? storage,
     required AvtApiClient apiClient,
-  }) : _storage = storage ?? TelemetryStorageFactory.create(),
-       _apiClient = apiClient {
+  })  : _storage = storage ?? TelemetryStorageFactory.create(),
+        _apiClient = apiClient {
     _initializeService();
   }
 

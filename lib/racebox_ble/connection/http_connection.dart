@@ -45,7 +45,7 @@ class HttpConnection implements DeviceConnection {
   }
 
   HttpConnection({String? simulatorUrl})
-    : simulatorUrl = simulatorUrl ?? getDefaultSimulatorUrl();
+      : simulatorUrl = simulatorUrl ?? getDefaultSimulatorUrl();
 
   @override
   Stream<List<RaceboxDevice>> get devicesStream => _devicesController.stream;
