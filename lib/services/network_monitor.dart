@@ -29,9 +29,10 @@ class NetworkMonitor {
   Future<NetworkQuality> getCurrentQuality() async {
     try {
       // 1. Check connectivity type
-      final connectivity = await Connectivity().checkConnectivity();
+      final connectivityList = await Connectivity().checkConnectivity();
 
-      if (connectivity == ConnectivityResult.none) {
+      if (connectivityList.contains(ConnectivityResult.none) ||
+          connectivityList.isEmpty) {
         _logger.d('📡 Network quality: offline (no connectivity)');
         return NetworkQuality.offline;
       }
@@ -42,8 +43,11 @@ class NetworkMonitor {
       // 3. Classify quality based on latency
       final quality = _classifyQuality(latency);
 
+      // Get the primary connectivity type (prefer WiFi > Ethernet > Mobile)
+      final primaryType = _getPrimaryConnectivity(connectivityList);
+
       _logger.d(
-        '📡 Network quality: ${quality.name} (latency: ${latency}ms, type: ${connectivity.name})',
+        '📡 Network quality: ${quality.name} (latency: ${latency}ms, type: ${primaryType.name})',
       );
 
       return quality;
@@ -150,13 +154,21 @@ class NetworkMonitor {
   /// Get connectivity type as a string
   Future<String> getConnectivityType() async {
     try {
-      final connectivity = await Connectivity().checkConnectivity();
+      final connectivityList = await Connectivity().checkConnectivity();
 
-      if (connectivity == ConnectivityResult.wifi) {
+      if (connectivityList.isEmpty ||
+          connectivityList.contains(ConnectivityResult.none)) {
+        return 'None';
+      }
+
+      // Get the primary connectivity type
+      final primaryType = _getPrimaryConnectivity(connectivityList);
+
+      if (primaryType == ConnectivityResult.wifi) {
         return 'WiFi';
-      } else if (connectivity == ConnectivityResult.mobile) {
+      } else if (primaryType == ConnectivityResult.mobile) {
         return 'Mobile';
-      } else if (connectivity == ConnectivityResult.ethernet) {
+      } else if (primaryType == ConnectivityResult.ethernet) {
         return 'Ethernet';
       } else {
         return 'None';
@@ -170,8 +182,8 @@ class NetworkMonitor {
   /// Check if currently connected to WiFi
   Future<bool> isWiFi() async {
     try {
-      final connectivity = await Connectivity().checkConnectivity();
-      return connectivity == ConnectivityResult.wifi;
+      final connectivityList = await Connectivity().checkConnectivity();
+      return connectivityList.contains(ConnectivityResult.wifi);
     } catch (e) {
       _logger.w('⚠️ Error checking WiFi status: $e');
       return false;
@@ -179,7 +191,25 @@ class NetworkMonitor {
   }
 
   /// Stream of connectivity changes
-  Stream<ConnectivityResult> get onConnectivityChanged {
+  Stream<List<ConnectivityResult>> get onConnectivityChanged {
     return Connectivity().onConnectivityChanged;
+  }
+
+  /// Get the primary connectivity type from a list of connectivity results
+  /// Prioritizes: WiFi > Ethernet > Mobile > Other
+  ConnectivityResult _getPrimaryConnectivity(
+    List<ConnectivityResult> connectivityList,
+  ) {
+    if (connectivityList.contains(ConnectivityResult.wifi)) {
+      return ConnectivityResult.wifi;
+    } else if (connectivityList.contains(ConnectivityResult.ethernet)) {
+      return ConnectivityResult.ethernet;
+    } else if (connectivityList.contains(ConnectivityResult.mobile)) {
+      return ConnectivityResult.mobile;
+    } else if (connectivityList.isNotEmpty) {
+      return connectivityList.first;
+    } else {
+      return ConnectivityResult.none;
+    }
   }
 }
