@@ -15,10 +15,7 @@ class SimulatorHttpServer {
   final List<SimulatorDevice> devices;
   HttpServer? _server;
 
-  SimulatorHttpServer({
-    required this.port,
-    required this.devices,
-  });
+  SimulatorHttpServer({required this.port, required this.devices});
 
   Future<void> start() async {
     final router = Router();
