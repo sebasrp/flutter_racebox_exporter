@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_racebox_exporter/services/network_monitor.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 void main() {
   group('NetworkMonitor', () {
@@ -292,6 +293,81 @@ void main() {
         expect(batchSize, equals(1000));
         expect(interval.inSeconds, equals(40));
         expect(batchSize, equals(interval.inSeconds * 25));
+      });
+    });
+
+    group('Connectivity API Changes (connectivity_plus v7.0.0)', () {
+      test('onConnectivityChanged stream should have correct type', () {
+        final monitor = NetworkMonitor(baseUrl: baseUrl);
+
+        // Verify the stream type is Stream<List<ConnectivityResult>>
+        // This ensures compatibility with connectivity_plus v7.0.0
+        expect(
+          monitor.onConnectivityChanged,
+          isA<Stream<List<ConnectivityResult>>>(),
+        );
+      });
+
+      test('ConnectivityResult enum values should be accessible', () {
+        // Verify that all connectivity result types are available
+        // This ensures the code compiles with the new API
+        expect(ConnectivityResult.wifi, isNotNull);
+        expect(ConnectivityResult.mobile, isNotNull);
+        expect(ConnectivityResult.ethernet, isNotNull);
+        expect(ConnectivityResult.none, isNotNull);
+      });
+    });
+
+    group('Regression Tests - API Compatibility', () {
+      test(
+        'measureLatency should still work with new connectivity API',
+        () async {
+          final mockClient = MockClient((request) async {
+            await Future.delayed(const Duration(milliseconds: 50));
+            return http.Response('{"status":"healthy"}', 200);
+          });
+
+          final monitor = NetworkMonitor(
+            baseUrl: baseUrl,
+            httpClient: mockClient,
+          );
+
+          final latency = await monitor.measureLatency();
+
+          // Verify latency measurement still works
+          expect(latency, greaterThan(0));
+          expect(latency, lessThan(9999));
+        },
+      );
+
+      test('all quality-based methods should still work', () {
+        final monitor = NetworkMonitor(baseUrl: baseUrl);
+
+        // Verify all quality-based methods still function
+        expect(
+          monitor.getRecommendedBatchSize(NetworkQuality.excellent),
+          equals(250),
+        );
+        expect(
+          monitor.getRecommendedUploadInterval(NetworkQuality.excellent),
+          equals(const Duration(seconds: 10)),
+        );
+        expect(
+          monitor.getQualityDescription(NetworkQuality.excellent),
+          equals('Excellent (< 100ms)'),
+        );
+        expect(monitor.canUpload(NetworkQuality.excellent), isTrue);
+      });
+
+      test('offline detection should work with new API', () {
+        final monitor = NetworkMonitor(baseUrl: baseUrl);
+
+        // Verify offline quality is handled correctly
+        expect(
+          monitor.getRecommendedBatchSize(NetworkQuality.offline),
+          equals(0),
+        );
+        expect(monitor.canUpload(NetworkQuality.offline), isFalse);
       });
     });
   });

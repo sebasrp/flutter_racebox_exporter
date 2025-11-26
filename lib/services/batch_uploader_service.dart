@@ -67,9 +67,10 @@ class BatchUploaderService {
 
     // Listen for connectivity changes
     _connectivitySubscription = networkMonitor.onConnectivityChanged.listen((
-      connectivity,
+      connectivityList,
     ) {
-      _logger.d('📡 Connectivity changed: ${connectivity.name}');
+      final connectivityTypes = connectivityList.map((c) => c.name).join(', ');
+      _logger.d('📡 Connectivity changed: $connectivityTypes');
       // Trigger an upload check when connectivity changes
       _scheduleNextUpload(immediate: true);
     });
