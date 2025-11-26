@@ -15,7 +15,6 @@ class TelemetryRingBuffer<T> {
   final Logger _logger = Logger();
 
   late final Queue<T> _buffer;
-  final _lock = Object();
 
   // Callbacks
   void Function(List<T> data)? onFlush;
