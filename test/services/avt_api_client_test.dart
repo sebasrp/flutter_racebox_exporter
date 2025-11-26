@@ -479,5 +479,97 @@ void main() {
       expect(result.error, contains('Failed after'));
       expect(result.attemptCount, 3);
     });
+
+    test('should handle non-JSON response on success status code', () async {
+      final mockClient = MockClient((request) async {
+        // Server returns 200 but with non-JSON body
+        return http.Response('OK', 200);
+      });
+
+      final client = AvtApiClient(httpClient: mockClient);
+
+      final result = await client.sendBatch([
+        {
+          'itow': 1000,
+          'recorded_at': DateTime.now().millisecondsSinceEpoch,
+          'latitude': 1.234,
+          'longitude': 5.678,
+          'wgs_altitude': 100.0,
+          'msl_altitude': 95.0,
+          'speed': 10.5,
+          'heading': 45.0,
+          'num_satellites': 12,
+          'fix_status': 3,
+          'horizontal_accuracy': 2.5,
+          'vertical_accuracy': 3.0,
+          'speed_accuracy': 0.5,
+          'heading_accuracy': 1.0,
+          'pdop': 1.5,
+          'is_fix_valid': 1,
+          'g_force_x': 0.1,
+          'g_force_y': 0.2,
+          'g_force_z': 1.0,
+          'rotation_x': 0.0,
+          'rotation_y': 0.0,
+          'rotation_z': 0.0,
+          'battery': 85.5,
+          'is_charging': 0,
+          'time_accuracy': 100,
+          'validity_flags': 255,
+        },
+      ]);
+
+      expect(result.success, false);
+      expect(result.error, contains('Failed to parse response'));
+      expect(result.error, contains('Body: OK'));
+      expect(result.attemptCount, 1);
+    });
+
+    test(
+      'should handle malformed JSON response on success status code',
+      () async {
+        final mockClient = MockClient((request) async {
+          // Server returns 201 but with malformed JSON
+          return http.Response('{"incomplete": ', 201);
+        });
+
+        final client = AvtApiClient(httpClient: mockClient);
+
+        final result = await client.sendBatch([
+          {
+            'itow': 1000,
+            'recorded_at': DateTime.now().millisecondsSinceEpoch,
+            'latitude': 1.234,
+            'longitude': 5.678,
+            'wgs_altitude': 100.0,
+            'msl_altitude': 95.0,
+            'speed': 10.5,
+            'heading': 45.0,
+            'num_satellites': 12,
+            'fix_status': 3,
+            'horizontal_accuracy': 2.5,
+            'vertical_accuracy': 3.0,
+            'speed_accuracy': 0.5,
+            'heading_accuracy': 1.0,
+            'pdop': 1.5,
+            'is_fix_valid': 1,
+            'g_force_x': 0.1,
+            'g_force_y': 0.2,
+            'g_force_z': 1.0,
+            'rotation_x': 0.0,
+            'rotation_y': 0.0,
+            'rotation_z': 0.0,
+            'battery': 85.5,
+            'is_charging': 0,
+            'time_accuracy': 100,
+            'validity_flags': 255,
+          },
+        ]);
+
+        expect(result.success, false);
+        expect(result.error, contains('Failed to parse response'));
+        expect(result.attemptCount, 1);
+      },
+    );
   });
 }
