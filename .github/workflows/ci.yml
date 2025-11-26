@@ -29,8 +29,14 @@ jobs:
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .
       
-      - name: Analyze code
+      - name: Analyze main project
         run: flutter analyze --fatal-infos
+      
+      - name: Get simulator dependencies
+        run: cd simulator && dart pub get
+      
+      - name: Analyze simulator
+        run: cd simulator && dart analyze --fatal-infos
 
   test:
     name: Test
