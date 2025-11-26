@@ -14,12 +14,12 @@ class SimulatorDevice {
   final List<StreamController<List<int>>> _dataControllers = [];
 
   SimulatorDevice({required this.config})
-      : id = DateTime.now().millisecondsSinceEpoch.toString(),
-        movement = MovementSimulator(config: config),
-        dataGenerator = DataGenerator(
-          movement: MovementSimulator(config: config),
-          config: config,
-        );
+    : id = DateTime.now().millisecondsSinceEpoch.toString(),
+      movement = MovementSimulator(config: config),
+      dataGenerator = DataGenerator(
+        movement: MovementSimulator(config: config),
+        config: config,
+      );
 
   bool get isConnected => _isConnected;
   String get name => config.deviceName;
