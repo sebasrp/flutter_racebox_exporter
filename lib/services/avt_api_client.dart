@@ -116,6 +116,65 @@ class AvtApiClient {
     _compressionCount = 0;
   }
 
+  /// Clean response text by removing ANSI codes and extracting JSON
+  String _cleanResponseText(String text) {
+    // Remove ANSI escape sequences (e.g., \x1b[38;5;196m for colors)
+    // ANSI codes start with ESC[ (or \x1b[) and end with a letter
+    var cleaned = text.replaceAll(RegExp(r'\x1B\[[0-9;]*[a-zA-Z]'), '');
+
+    // Also remove other common escape sequences
+    cleaned = cleaned.replaceAll(RegExp(r'\x1B[^\[]*'), '');
+
+    // Try to find JSON object or array
+    // Look for { or [ at the start of JSON content
+    final jsonStart = cleaned.indexOf(RegExp(r'[{\[]'));
+    if (jsonStart >= 0) {
+      // Find the matching closing bracket
+      var depth = 0;
+      var inString = false;
+      var escapeNext = false;
+      var jsonEnd = -1;
+
+      for (var i = jsonStart; i < cleaned.length; i++) {
+        final char = cleaned[i];
+
+        if (escapeNext) {
+          escapeNext = false;
+          continue;
+        }
+
+        if (char == '\\') {
+          escapeNext = true;
+          continue;
+        }
+
+        if (char == '"' && !escapeNext) {
+          inString = !inString;
+          continue;
+        }
+
+        if (!inString) {
+          if (char == '{' || char == '[') {
+            depth++;
+          } else if (char == '}' || char == ']') {
+            depth--;
+            if (depth == 0) {
+              jsonEnd = i + 1;
+              break;
+            }
+          }
+        }
+      }
+
+      if (jsonEnd > jsonStart) {
+        return cleaned.substring(jsonStart, jsonEnd);
+      }
+    }
+
+    // If no JSON found, return cleaned text
+    return cleaned.trim();
+  }
+
   /// Send batch of telemetry data to AVT service
   Future<BatchUploadResult> sendBatch(
     List<Map<String, dynamic>> telemetryBatch, {
@@ -245,45 +304,114 @@ class AvtApiClient {
             .timeout(AvtApiConfig.timeout);
 
         if (response.statusCode == 201 || response.statusCode == 200) {
-          final responseData = jsonDecode(response.body);
+          try {
+            // Handle potentially compressed response
+            List<int> bodyBytes = response.bodyBytes;
+            final contentEncoding = response.headers['content-encoding']
+                ?.toLowerCase();
 
-          // Check if this was a duplicate batch (idempotency)
-          final isDuplicate =
-              responseData['message']?.toString().contains(
-                'already processed',
-              ) ??
-              false;
+            if (contentEncoding == 'gzip') {
+              // Use archive package decoder for cross-platform compatibility
+              bodyBytes = GZipDecoder().decodeBytes(bodyBytes);
+            }
 
-          final ids =
-              (responseData['ids'] as List<dynamic>?)
-                  ?.map((id) => id as int)
-                  .toList() ??
-              [];
+            // Decode and clean response text (removes ANSI codes)
+            var bodyText = utf8.decode(bodyBytes, allowMalformed: true);
+            bodyText = _cleanResponseText(bodyText);
 
-          if (isDuplicate) {
-            _logger.i(
-              'Batch already processed on server (batchId: $batchId, requestId=$requestId)',
+            final responseData = jsonDecode(bodyText);
+
+            // Check if this was a duplicate batch (idempotency)
+            final isDuplicate =
+                responseData['message']?.toString().contains(
+                  'already processed',
+                ) ??
+                false;
+
+            final ids =
+                (responseData['ids'] as List<dynamic>?)
+                    ?.map((id) => id as int)
+                    .toList() ??
+                [];
+
+            if (isDuplicate) {
+              _logger.i(
+                'Batch already processed on server (batchId: $batchId, requestId=$requestId)',
+              );
+            } else {
+              _logger.i(
+                'Successfully uploaded ${ids.length} records '
+                '(attempt $attempt, requestId=$requestId, compression=$compressionRatio%)',
+              );
+            }
+
+            return BatchUploadResult(
+              success: true,
+              savedIds: ids,
+              attemptCount: attempt,
             );
-          } else {
-            _logger.i(
-              'Successfully uploaded ${ids.length} records '
-              '(attempt $attempt, requestId=$requestId, compression=$compressionRatio%)',
+          } catch (e) {
+            // Safely decode response body (may be compressed)
+            String bodyText;
+            try {
+              List<int> bodyBytes = response.bodyBytes;
+              final contentEncoding = response.headers['content-encoding']
+                  ?.toLowerCase();
+
+              if (contentEncoding == 'gzip') {
+                bodyBytes = GZipDecoder().decodeBytes(bodyBytes);
+              }
+              bodyText = utf8.decode(bodyBytes, allowMalformed: true);
+              bodyText = _cleanResponseText(bodyText);
+            } catch (_) {
+              bodyText = '<failed to decode response body>';
+            }
+
+            final error = 'Failed to parse response: $e. Body: $bodyText';
+            _logger.e(error);
+
+            if (kDebugMode) {
+              print(
+                '[AvtApiClient] Parse error on successful response: $error',
+              );
+            }
+
+            // Don't retry on parse errors - this is a client-side issue
+            return BatchUploadResult(
+              success: false,
+              error: error,
+              attemptCount: attempt,
             );
           }
-
-          return BatchUploadResult(
-            success: true,
-            savedIds: ids,
-            attemptCount: attempt,
-          );
         } else {
-          String errorDetails = response.body;
+          // Handle potentially compressed error responses
+          String errorDetails;
           try {
-            final errorJson = jsonDecode(response.body);
-            errorDetails =
-                errorJson['error'] ?? errorJson['details'] ?? response.body;
-          } catch (_) {
-            // If not JSON, use raw body
+            List<int> bodyBytes = response.bodyBytes;
+            final contentEncoding = response.headers['content-encoding']
+                ?.toLowerCase();
+
+            if (contentEncoding == 'gzip') {
+              bodyBytes = GZipDecoder().decodeBytes(bodyBytes);
+            }
+
+            var bodyText = utf8.decode(bodyBytes, allowMalformed: true);
+            bodyText = _cleanResponseText(bodyText);
+            errorDetails = bodyText;
+
+            // Try to parse as JSON for better error message
+            try {
+              final errorJson = jsonDecode(bodyText);
+              errorDetails =
+                  errorJson['error'] ?? errorJson['details'] ?? bodyText;
+            } catch (_) {
+              // If not JSON, use raw text
+            }
+          } catch (e) {
+            errorDetails = 'Failed to decode response: $e';
+            if (kDebugMode) {
+              print('[AvtApiClient] Error decoding error response: $e');
+            }
           }
 
           final error = 'Server returned ${response.statusCode}: $errorDetails';
@@ -292,7 +420,7 @@ class AvtApiClient {
           );
 
           if (kDebugMode) {
-            print('[AvtApiClient] Full response: ${response.body}');
+            print('[AvtApiClient] Full response: $errorDetails');
           }
 
           // Don't retry on client errors (4xx)
