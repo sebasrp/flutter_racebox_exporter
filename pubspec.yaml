@@ -64,7 +64,7 @@ dependencies:
   shared_preferences: ^2.2.2
 
   # Background processing
-  workmanager: ^0.9.0  # Android background tasks
+  workmanager: ^0.7.0  # Android background tasks
   background_fetch: ^1.3.1  # iOS background tasks
 
   # Battery monitoring
