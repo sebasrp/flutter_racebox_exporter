@@ -1,8 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_racebox_exporter/database/telemetry_queue_database.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'dart:convert';
 
 void main() {
+  // Initialize FFI for testing
+  setUpAll(() {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  });
+
   group('Dead Letter Queue', () {
     late TelemetryQueueDatabase database;
 

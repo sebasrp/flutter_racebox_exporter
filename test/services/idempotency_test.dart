@@ -3,6 +3,7 @@ import 'package:flutter_racebox_exporter/database/telemetry_queue_database.dart'
 import 'package:flutter_racebox_exporter/services/avt_api_client.dart';
 import 'package:flutter_racebox_exporter/services/batch_uploader_service.dart';
 import 'package:flutter_racebox_exporter/services/network_monitor.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'dart:convert';
@@ -36,6 +37,12 @@ class MockNetworkMonitor extends NetworkMonitor {
 }
 
 void main() {
+  // Initialize FFI for testing
+  setUpAll(() {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  });
+
   group('Idempotency - Duplicate Response Handling', () {
     late TelemetryQueueDatabase database;
 
