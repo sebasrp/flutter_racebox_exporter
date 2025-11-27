@@ -66,6 +66,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _updateEnvironment(ApiEnvironment env) async {
+    final provider = context.read<RaceboxProvider>();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       EnvironmentConfig.environmentKey,
@@ -73,7 +74,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     final url = EnvironmentConfig.getUrlForEnvironment(env);
-    final provider = context.read<RaceboxProvider>();
     await provider.syncService.updateApiUrl(url);
 
     if (mounted) {
