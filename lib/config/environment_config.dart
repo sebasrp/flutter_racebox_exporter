@@ -13,7 +13,7 @@ class EnvironmentConfig {
   static const String environmentKey = 'api_environment';
   static const String customUrlKey = 'avt_service_url';
 
-  static const String _productionUrl = 'https://avt.sebasr.com:8080';
+  static const String _productionUrl = 'http://avt.sebasr.com:8080';
   static const String _defaultTestingUrl = 'http://localhost:8080';
   static const String _androidEmulatorUrl = 'http://10.0.2.2:8080';
 
