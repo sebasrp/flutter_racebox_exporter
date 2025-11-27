@@ -7,29 +7,16 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:logger/logger.dart';
 import 'package:archive/archive.dart';
+import '../config/environment_config.dart';
 
 /// Configuration for AVT API
 class AvtApiConfig {
   static const String urlKey = 'avt_service_url';
 
   /// Get the default AVT service URL based on platform
-  /// Android emulators use 10.0.2.2 to access host machine
-  /// Web and other platforms use localhost
+  /// Uses the environment configuration system for platform-specific URLs
   static String get defaultUrl {
-    // Web platform always uses localhost
-    if (kIsWeb) {
-      return 'http://localhost:8080';
-    }
-    // Android emulators need special IP to reach host
-    try {
-      if (Platform.isAndroid) {
-        return 'http://10.0.2.2:8080';
-      }
-    } catch (_) {
-      // Platform check failed (shouldn't happen but handle gracefully)
-    }
-    // Default for iOS and other platforms
-    return 'http://localhost:8080';
+    return EnvironmentConfig.getTestingUrl();
   }
 
   static const Duration timeout = Duration(seconds: 30);
@@ -73,8 +60,24 @@ class AvtApiClient {
   Future<void> _loadConfig() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      _baseUrl =
-          prefs.getString(AvtApiConfig.urlKey) ?? AvtApiConfig.defaultUrl;
+
+      // First check for environment-based configuration
+      final envString = prefs.getString(EnvironmentConfig.environmentKey);
+      if (envString != null) {
+        final environment = EnvironmentConfig.parseEnvironment(envString);
+        _baseUrl = EnvironmentConfig.getUrlForEnvironment(environment);
+        return;
+      }
+
+      // Fall back to custom URL if no environment is set
+      final customUrl = prefs.getString(AvtApiConfig.urlKey);
+      if (customUrl != null) {
+        _baseUrl = customUrl;
+        return;
+      }
+
+      // Use default URL if neither is set
+      _baseUrl = AvtApiConfig.defaultUrl;
     } catch (e) {
       _logger.w('Error loading config: $e');
       // Keep using default URL on error
