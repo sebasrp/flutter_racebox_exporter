@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../config/environment_config.dart';
 import '../providers/racebox_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -13,11 +15,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _urlController = TextEditingController();
   bool _isTestingConnection = false;
   bool? _connectionTestResult;
+  ApiEnvironment _selectedEnvironment = ApiEnvironment.testing;
+  bool _useCustomUrl = false;
 
   @override
   void initState() {
     super.initState();
     _loadCurrentUrl();
+    _loadEnvironmentSettings();
   }
 
   Future<void> _loadCurrentUrl() async {
@@ -36,6 +41,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _urlController.text = 'http://localhost:8080';
         });
       }
+    }
+  }
+
+  Future<void> _loadEnvironmentSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final envString = prefs.getString(EnvironmentConfig.environmentKey);
+    final customUrl = prefs.getString(EnvironmentConfig.customUrlKey);
+
+    if (mounted) {
+      setState(() {
+        _selectedEnvironment = EnvironmentConfig.parseEnvironment(envString);
+        _useCustomUrl = customUrl != null;
+
+        if (_useCustomUrl && customUrl != null) {
+          _urlController.text = customUrl;
+        } else {
+          _urlController.text = EnvironmentConfig.getUrlForEnvironment(
+            _selectedEnvironment,
+          );
+        }
+      });
+    }
+  }
+
+  Future<void> _updateEnvironment(ApiEnvironment env) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      EnvironmentConfig.environmentKey,
+      EnvironmentConfig.environmentToString(env),
+    );
+
+    final url = EnvironmentConfig.getUrlForEnvironment(env);
+    final provider = context.read<RaceboxProvider>();
+    await provider.syncService.updateApiUrl(url);
+
+    if (mounted) {
+      setState(() {
+        _selectedEnvironment = env;
+        _urlController.text = url;
+        _useCustomUrl = false;
+      });
     }
   }
 
@@ -65,6 +111,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await provider.syncService.updateApiUrl(_urlController.text);
 
     if (mounted) {
+      setState(() {
+        _useCustomUrl = true;
+      });
+
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('AVT service URL updated')));
@@ -98,7 +148,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // AVT Service Configuration
+              // Environment Configuration
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -106,59 +156,145 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'AVT Service Configuration',
+                        'Environment',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       const SizedBox(height: 16),
-                      TextField(
-                        controller: _urlController,
-                        decoration: const InputDecoration(
-                          labelText: 'Service URL',
-                          hintText: 'http://localhost:8080',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.link),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed: _isTestingConnection
-                                ? null
-                                : _testConnection,
-                            icon: _isTestingConnection
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.network_check),
-                            label: const Text('Test Connection'),
+                      SegmentedButton<ApiEnvironment>(
+                        segments: const [
+                          ButtonSegment<ApiEnvironment>(
+                            value: ApiEnvironment.testing,
+                            label: Text('Testing'),
+                            icon: Icon(Icons.code),
                           ),
-                          const SizedBox(width: 8),
-                          if (_connectionTestResult != null)
-                            Icon(
-                              _connectionTestResult!
-                                  ? Icons.check_circle
-                                  : Icons.error,
-                              color: _connectionTestResult!
-                                  ? Colors.green
-                                  : Colors.red,
-                            ),
-                          const Spacer(),
-                          ElevatedButton.icon(
-                            onPressed: _saveUrl,
-                            icon: const Icon(Icons.save),
-                            label: const Text('Save'),
+                          ButtonSegment<ApiEnvironment>(
+                            value: ApiEnvironment.production,
+                            label: Text('Production'),
+                            icon: Icon(Icons.cloud),
                           ),
                         ],
+                        selected: {_selectedEnvironment},
+                        onSelectionChanged: (Set<ApiEnvironment> selected) {
+                          _updateEnvironment(selected.first);
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.grey.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.link,
+                              size: 16,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                EnvironmentConfig.getUrlForEnvironment(
+                                  _selectedEnvironment,
+                                ),
+                                style: const TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SwitchListTile(
+                        title: const Text('Use Custom URL'),
+                        subtitle: const Text(
+                          'Override environment with custom server',
+                        ),
+                        value: _useCustomUrl,
+                        onChanged: (bool value) {
+                          setState(() {
+                            _useCustomUrl = value;
+                          });
+                        },
                       ),
                     ],
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+
+              // Custom Server Configuration (only shown when using custom URL)
+              if (_useCustomUrl)
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Custom Server Configuration',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        Text(
+                          'Override the selected environment with a custom server URL',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _urlController,
+                          decoration: const InputDecoration(
+                            labelText: 'Service URL',
+                            hintText: 'http://localhost:8080',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.link),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: _isTestingConnection
+                                  ? null
+                                  : _testConnection,
+                              icon: _isTestingConnection
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.network_check),
+                              label: const Text('Test Connection'),
+                            ),
+                            const SizedBox(width: 8),
+                            if (_connectionTestResult != null)
+                              Icon(
+                                _connectionTestResult!
+                                    ? Icons.check_circle
+                                    : Icons.error,
+                                color: _connectionTestResult!
+                                    ? Colors.green
+                                    : Colors.red,
+                              ),
+                            const Spacer(),
+                            ElevatedButton.icon(
+                              onPressed: _saveUrl,
+                              icon: const Icon(Icons.save),
+                              label: const Text('Save'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               const SizedBox(height: 16),
 
               // Sync Status
