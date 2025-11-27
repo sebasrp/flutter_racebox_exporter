@@ -4,8 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_racebox_exporter/services/avt_api_client.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:flutter_racebox_exporter/config/environment_config.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('AvtApiClient - Compression', () {
     test('should compress request body with gzip', () async {
       bool compressionHeaderPresent = false;
@@ -571,5 +575,245 @@ void main() {
         expect(result.attemptCount, 1);
       },
     );
+  });
+
+  group('AvtApiClient - Environment Configuration', () {
+    setUp(() {
+      // Clear all preferences before each test
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    test('should use default testing URL when no preferences set', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response('{"status": "ok"}', 200);
+      });
+
+      final client = AvtApiClient(httpClient: mockClient);
+
+      // Give time for async config loading
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      final url = client.baseUrl;
+
+      // Should be testing URL (localhost or Android emulator)
+      expect(url, anyOf('http://localhost:8080', 'http://10.0.2.2:8080'));
+    });
+
+    test('should load production environment from SharedPreferences', () async {
+      SharedPreferences.setMockInitialValues({
+        EnvironmentConfig.environmentKey: 'production',
+      });
+
+      final mockClient = MockClient((request) async {
+        return http.Response('{"status": "ok"}', 200);
+      });
+
+      final client = AvtApiClient(httpClient: mockClient);
+
+      // Give time for async config loading
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      expect(client.baseUrl, 'https://avt.sebasr.com:8080');
+    });
+
+    test('should load testing environment from SharedPreferences', () async {
+      SharedPreferences.setMockInitialValues({
+        EnvironmentConfig.environmentKey: 'testing',
+      });
+
+      final mockClient = MockClient((request) async {
+        return http.Response('{"status": "ok"}', 200);
+      });
+
+      final client = AvtApiClient(httpClient: mockClient);
+
+      // Give time for async config loading
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      final url = client.baseUrl;
+      expect(url, anyOf('http://localhost:8080', 'http://10.0.2.2:8080'));
+    });
+
+    test('should fall back to custom URL if environment not set', () async {
+      SharedPreferences.setMockInitialValues({
+        AvtApiConfig.urlKey: 'http://custom-server:9000',
+      });
+
+      final mockClient = MockClient((request) async {
+        return http.Response('{"status": "ok"}', 200);
+      });
+
+      final client = AvtApiClient(httpClient: mockClient);
+
+      // Give time for async config loading
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      expect(client.baseUrl, 'http://custom-server:9000');
+    });
+
+    test('should prioritize environment over custom URL', () async {
+      SharedPreferences.setMockInitialValues({
+        EnvironmentConfig.environmentKey: 'production',
+        AvtApiConfig.urlKey: 'http://custom-server:9000',
+      });
+
+      final mockClient = MockClient((request) async {
+        return http.Response('{"status": "ok"}', 200);
+      });
+
+      final client = AvtApiClient(httpClient: mockClient);
+
+      // Give time for async config loading
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // Environment should take priority
+      expect(client.baseUrl, 'https://avt.sebasr.com:8080');
+    });
+
+    test('should save custom URL to SharedPreferences', () async {
+      SharedPreferences.setMockInitialValues({});
+
+      final mockClient = MockClient((request) async {
+        return http.Response('{"status": "ok"}', 200);
+      });
+
+      final client = AvtApiClient(httpClient: mockClient);
+
+      // Give time for initial config load
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      await client.setBaseUrl('http://new-server:8888');
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString(AvtApiConfig.urlKey), 'http://new-server:8888');
+
+      // The baseUrl getter returns the internal _baseUrl which is set by setBaseUrl
+      expect(client.baseUrl, 'http://new-server:8888');
+    });
+
+    test('should strip trailing slash when setting URL', () async {
+      SharedPreferences.setMockInitialValues({});
+
+      final mockClient = MockClient((request) async {
+        return http.Response('{"status": "ok"}', 200);
+      });
+
+      final client = AvtApiClient(httpClient: mockClient);
+
+      // Give time for initial config load
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      await client.setBaseUrl('http://new-server:8888/');
+
+      expect(client.baseUrl, 'http://new-server:8888');
+    });
+
+    test('should handle environment parsing errors gracefully', () async {
+      // Invalid environment value should default to testing
+      SharedPreferences.setMockInitialValues({
+        EnvironmentConfig.environmentKey: 'invalid-env',
+      });
+
+      final mockClient = MockClient((request) async {
+        return http.Response('{"status": "ok"}', 200);
+      });
+
+      final client = AvtApiClient(httpClient: mockClient);
+
+      // Give time for async config loading
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      final url = client.baseUrl;
+      // Should fall back to testing URL
+      expect(url, anyOf('http://localhost:8080', 'http://10.0.2.2:8080'));
+    });
+
+    test('should use correct URL in API requests', () async {
+      SharedPreferences.setMockInitialValues({
+        EnvironmentConfig.environmentKey: 'production',
+      });
+
+      String? requestedUrl;
+      final mockClient = MockClient((request) async {
+        requestedUrl = request.url.toString();
+        return http.Response('{"status": "ok"}', 200);
+      });
+
+      final client = AvtApiClient(httpClient: mockClient);
+
+      // Give time for async config loading
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      await client.testConnection();
+
+      expect(requestedUrl, 'https://avt.sebasr.com:8080/api/v1/health');
+    });
+
+    test('should update URL and make requests to new endpoint', () async {
+      SharedPreferences.setMockInitialValues({});
+
+      String? requestedUrl;
+      final mockClient = MockClient((request) async {
+        requestedUrl = request.url.toString();
+        return http.Response('{"status": "ok"}', 200);
+      });
+
+      final client = AvtApiClient(httpClient: mockClient);
+
+      // Give time for initial config load
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      await client.setBaseUrl('http://test-server:7777');
+      await client.testConnection();
+
+      expect(requestedUrl, 'http://test-server:7777/api/v1/health');
+    });
+
+    test('should maintain URL across multiple requests', () async {
+      SharedPreferences.setMockInitialValues({
+        EnvironmentConfig.environmentKey: 'production',
+      });
+
+      final requestedUrls = <String>[];
+      final mockClient = MockClient((request) async {
+        requestedUrls.add(request.url.toString());
+        return http.Response('{"status": "ok"}', 200);
+      });
+
+      final client = AvtApiClient(httpClient: mockClient);
+
+      // Give time for async config loading
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      await client.testConnection();
+      await client.testConnection();
+      await client.testConnection();
+
+      expect(requestedUrls.length, 3);
+      for (final url in requestedUrls) {
+        expect(url, 'https://avt.sebasr.com:8080/api/v1/health');
+      }
+    });
+  });
+
+  group('AvtApiConfig', () {
+    test('should have correct default URL', () {
+      final url = AvtApiConfig.defaultUrl;
+
+      // Should be a testing URL (platform-specific)
+      expect(url, anyOf('http://localhost:8080', 'http://10.0.2.2:8080'));
+    });
+
+    test('should have correct timeout duration', () {
+      expect(AvtApiConfig.timeout, const Duration(seconds: 30));
+    });
+
+    test('should have correct max retries', () {
+      expect(AvtApiConfig.maxRetries, 3);
+    });
+
+    test('should have correct URL storage key', () {
+      expect(AvtApiConfig.urlKey, 'avt_service_url');
+    });
   });
 }
