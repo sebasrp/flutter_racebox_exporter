@@ -613,7 +613,7 @@ void main() {
       // Give time for async config loading
       await Future.delayed(const Duration(milliseconds: 100));
 
-      expect(client.baseUrl, 'https://avt.sebasr.com:8080');
+      expect(client.baseUrl, 'http://avt.sebasr.com:8080');
     });
 
     test('should load testing environment from SharedPreferences', () async {
@@ -667,7 +667,7 @@ void main() {
       await Future.delayed(const Duration(milliseconds: 100));
 
       // Environment should take priority
-      expect(client.baseUrl, 'https://avt.sebasr.com:8080');
+      expect(client.baseUrl, 'http://avt.sebasr.com:8080');
     });
 
     test('should save custom URL to SharedPreferences', () async {
@@ -746,7 +746,7 @@ void main() {
 
       await client.testConnection();
 
-      expect(requestedUrl, 'https://avt.sebasr.com:8080/api/v1/health');
+      expect(requestedUrl, 'http://avt.sebasr.com:8080/api/v1/health');
     });
 
     test('should update URL and make requests to new endpoint', () async {
@@ -791,7 +791,7 @@ void main() {
 
       expect(requestedUrls.length, 3);
       for (final url in requestedUrls) {
-        expect(url, 'https://avt.sebasr.com:8080/api/v1/health');
+        expect(url, 'http://avt.sebasr.com:8080/api/v1/health');
       }
     });
   });
