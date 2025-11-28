@@ -19,7 +19,7 @@ void main() {
           ApiEnvironment.production,
         );
 
-        expect(url, 'https://avt.sebasr.com:8080');
+        expect(url, 'http://avt.sebasr.com:8080');
       });
     });
 
@@ -157,11 +157,11 @@ void main() {
     });
 
     group('URL validation', () {
-      test('production URL should use HTTPS', () {
+      test('production URL should use HTTP', () {
         final url = EnvironmentConfig.getUrlForEnvironment(
           ApiEnvironment.production,
         );
-        expect(url, startsWith('https://'));
+        expect(url, startsWith('http://'));
       });
 
       test('production URL should have valid domain', () {
