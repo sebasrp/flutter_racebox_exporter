@@ -15,7 +15,6 @@ class RaceboxProvider extends ChangeNotifier {
   final TelemetryStorage _storage = TelemetryStorageFactory.create();
   late final TelemetrySyncService _syncService;
   late final AvtApiClient _apiClient;
-  AuthService? _authService;
 
   List<RaceboxDevice> _devices = [];
   DeviceConnectionState _connectionState = DeviceConnectionState.disconnected;
@@ -76,7 +75,6 @@ class RaceboxProvider extends ChangeNotifier {
 
   /// Set the auth service for authenticated API requests
   void setAuthService(AuthService authService) {
-    _authService = authService;
     _apiClient.setAuthService(authService);
   }
 
