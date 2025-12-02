@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/environment_config.dart';
 import '../providers/racebox_provider.dart';
+import '../services/auth_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -137,8 +138,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _logout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign Out'),
+        content: const Text('Are you sure you want to sign out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final authService = context.read<AuthService>();
+      await authService.logout();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final authService = context.watch<AuthService>();
+
     return Scaffold(
       appBar: AppBar(title: const Text('Settings'), centerTitle: true),
       body: Consumer<RaceboxProvider>(
@@ -148,6 +176,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              // Account Section
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Account',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 16),
+                      if (authService.isAuthenticated &&
+                          authService.currentUser != null) ...[
+                        _buildInfoRow(
+                          'Email',
+                          authService.currentUser!.email,
+                          icon: Icons.email_outlined,
+                        ),
+                        _buildInfoRow(
+                          'User ID',
+                          '${authService.currentUser!.id.substring(0, 8)}...',
+                          icon: Icons.person_outline,
+                        ),
+                        _buildInfoRow(
+                          'Email Verified',
+                          authService.currentUser!.emailVerified ? 'Yes' : 'No',
+                          icon: authService.currentUser!.emailVerified
+                              ? Icons.verified_outlined
+                              : Icons.warning_outlined,
+                          iconColor: authService.currentUser!.emailVerified
+                              ? Colors.green
+                              : Colors.orange,
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _logout,
+                            icon: const Icon(Icons.logout),
+                            label: const Text('Sign Out'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                            ),
+                          ),
+                        ),
+                      ] else ...[
+                        const Center(child: Text('Not signed in')),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
               // Environment Configuration
               Card(
                 child: Padding(

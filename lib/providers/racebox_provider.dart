@@ -7,12 +7,15 @@ import '../database/telemetry_storage.dart';
 import '../database/telemetry_storage_factory.dart';
 import '../services/telemetry_sync_service.dart';
 import '../services/avt_api_client.dart';
+import '../services/auth_service.dart';
 
 /// Provider for managing Racebox service state
 class RaceboxProvider extends ChangeNotifier {
   final RaceboxService _service = RaceboxService();
   final TelemetryStorage _storage = TelemetryStorageFactory.create();
   late final TelemetrySyncService _syncService;
+  late final AvtApiClient _apiClient;
+  AuthService? _authService;
 
   List<RaceboxDevice> _devices = [];
   DeviceConnectionState _connectionState = DeviceConnectionState.disconnected;
@@ -23,10 +26,13 @@ class RaceboxProvider extends ChangeNotifier {
   int _recordedCount = 0;
 
   RaceboxProvider() {
+    // Initialize API client
+    _apiClient = AvtApiClient();
+
     // Initialize sync service with platform-specific storage
     _syncService = TelemetrySyncService(
       storage: _storage,
-      apiClient: AvtApiClient(),
+      apiClient: _apiClient,
     );
 
     // Listen to sync service changes
@@ -66,6 +72,12 @@ class RaceboxProvider extends ChangeNotifier {
 
   void _onSyncServiceChanged() {
     notifyListeners();
+  }
+
+  /// Set the auth service for authenticated API requests
+  void setAuthService(AuthService authService) {
+    _authService = authService;
+    _apiClient.setAuthService(authService);
   }
 
   /// List of discovered devices

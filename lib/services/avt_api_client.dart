@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import 'package:logger/logger.dart';
 import 'package:archive/archive.dart';
 import '../config/environment_config.dart';
+import 'auth_service.dart';
 
 /// Configuration for AVT API
 class AvtApiConfig {
@@ -44,15 +45,24 @@ class AvtApiClient {
   final Uuid _uuid = const Uuid();
   String _baseUrl = AvtApiConfig.defaultUrl;
 
+  // Auth service for getting access tokens
+  AuthService? _authService;
+
   // Compression statistics
   int _totalUncompressedBytes = 0;
   int _totalCompressedBytes = 0;
   int _compressionCount = 0;
 
-  AvtApiClient({http.Client? httpClient})
-    : _httpClient = httpClient ?? http.Client() {
+  AvtApiClient({http.Client? httpClient, AuthService? authService})
+    : _httpClient = httpClient ?? http.Client(),
+      _authService = authService {
     // Load config deferred to avoid initialization issues
     Future.microtask(() => _loadConfig());
+  }
+
+  /// Set the auth service for authenticated requests
+  void setAuthService(AuthService authService) {
+    _authService = authService;
   }
 
   /// Load configuration from shared preferences
@@ -271,6 +281,14 @@ class AvtApiClient {
           'X-Request-ID': requestId,
         };
 
+        // Add Authorization header if authenticated
+        if (_authService != null) {
+          final accessToken = await _authService!.getValidAccessToken();
+          if (accessToken != null) {
+            headers['Authorization'] = 'Bearer $accessToken';
+          }
+        }
+
         // Add Content-Encoding header if compression was used
         if (useCompression) {
           headers['Content-Encoding'] = 'gzip';
@@ -465,8 +483,18 @@ class AvtApiClient {
         _logger.d('Testing connection to: $url');
       }
 
+      final headers = <String, String>{};
+
+      // Add Authorization header if authenticated
+      if (_authService != null) {
+        final accessToken = await _authService!.getValidAccessToken();
+        if (accessToken != null) {
+          headers['Authorization'] = 'Bearer $accessToken';
+        }
+      }
+
       final response = await _httpClient
-          .get(Uri.parse(url))
+          .get(Uri.parse(url), headers: headers.isNotEmpty ? headers : null)
           .timeout(const Duration(seconds: 5));
 
       if (kDebugMode) {
