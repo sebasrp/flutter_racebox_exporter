@@ -2,32 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../models/auth_models.dart';
-import 'register_screen.dart';
-import 'forgot_password_screen.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class ForgotPasswordScreen extends StatefulWidget {
+  const ForgotPasswordScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _obscurePassword = true;
   bool _isLoading = false;
   String? _errorMessage;
+  bool _emailSent = false;
 
   @override
   void dispose() {
     _emailController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
-  Future<void> _login() async {
+  Future<void> _sendResetLink() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -35,15 +31,16 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      _emailSent = false;
     });
 
     try {
       final authService = context.read<AuthService>();
-      await authService.login(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
-      // Navigation will be handled by the parent widget listening to auth state
+      await authService.forgotPassword(email: _emailController.text.trim());
+
+      setState(() {
+        _emailSent = true;
+      });
     } on AuthError catch (e) {
       setState(() {
         _errorMessage = e.message;
@@ -61,21 +58,10 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _navigateToRegister() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const RegisterScreen()));
-  }
-
-  void _navigateToForgotPassword() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()));
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: const Text('Reset Password')),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -86,29 +72,57 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Logo/Title
+                  // Header
                   Icon(
-                    Icons.speed,
-                    size: 80,
+                    Icons.lock_reset,
+                    size: 64,
                     color: Theme.of(context).colorScheme.primary,
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Racebox Exporter',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    'Forgot Password?',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Sign in to sync your telemetry data',
+                    'Enter your email address and we\'ll send you a link to reset your password',
                     style: Theme.of(
                       context,
                     ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 32),
+
+                  // Success message
+                  if (_emailSent) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.green),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.check_circle_outline,
+                            color: Colors.green,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'If an account with that email exists, a password reset link has been sent. Please check your email.',
+                              style: const TextStyle(color: Colors.green),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
 
                   // Error message
                   if (_errorMessage != null) ...[
@@ -139,8 +153,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
+                    textInputAction: TextInputAction.done,
                     autocorrect: false,
+                    enabled: !_emailSent,
+                    onFieldSubmitted: (_) => _sendResetLink(),
                     decoration: const InputDecoration(
                       labelText: 'Email',
                       hintText: 'Enter your email',
@@ -159,54 +175,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
 
-                  // Password field
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    textInputAction: TextInputAction.done,
-                    onFieldSubmitted: (_) => _login(),
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      hintText: 'Enter your password',
-                      prefixIcon: const Icon(Icons.lock_outlined),
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your password';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Forgot Password link
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: _navigateToForgotPassword,
-                      child: const Text('Forgot Password?'),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Login button
+                  // Send reset link button
                   FilledButton(
-                    onPressed: _isLoading ? null : _login,
+                    onPressed: (_isLoading || _emailSent)
+                        ? null
+                        : _sendResetLink,
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
@@ -219,18 +194,18 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text('Sign In'),
+                        : const Text('Send Reset Link'),
                   ),
                   const SizedBox(height: 16),
 
-                  // Register link
+                  // Back to login link
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text("Don't have an account?"),
+                      const Text('Remember your password?'),
                       TextButton(
-                        onPressed: _navigateToRegister,
-                        child: const Text('Sign Up'),
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Sign In'),
                       ),
                     ],
                   ),
