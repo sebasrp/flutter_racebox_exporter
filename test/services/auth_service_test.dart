@@ -408,6 +408,15 @@ void main() {
     );
   });
 
+  group('ForgotPasswordRequest', () {
+    test('toJson returns correct map', () {
+      final request = ForgotPasswordRequest(email: 'test@example.com');
+      final json = request.toJson();
+
+      expect(json, {'email': 'test@example.com'});
+    });
+  });
+
   group('SecureStorageService', () {
     late SecureStorageService storage;
 

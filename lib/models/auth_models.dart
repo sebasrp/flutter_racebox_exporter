@@ -87,6 +87,17 @@ class RefreshTokenRequest {
   }
 }
 
+/// Request body for forgot password
+class ForgotPasswordRequest {
+  final String email;
+
+  ForgotPasswordRequest({required this.email});
+
+  Map<String, dynamic> toJson() {
+    return {'email': email};
+  }
+}
+
 /// Authentication error types
 enum AuthErrorType {
   invalidCredentials,
