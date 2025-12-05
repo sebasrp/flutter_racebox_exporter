@@ -282,6 +282,95 @@ void main() {
         expect(newToken, 'new-access-token');
       });
     });
+
+    group('forgotPassword', () {
+      test('successful request returns without error', () async {
+        mockClient = MockClient((request) async {
+          expect(request.url.path, '/api/v1/auth/forgot-password');
+          expect(request.method, 'POST');
+
+          final body = jsonDecode(request.body);
+          expect(body['email'], 'test@example.com');
+
+          return http.Response(
+            jsonEncode({
+              'message':
+                  'If an account with that email exists, a password reset link has been sent',
+            }),
+            200,
+          );
+        });
+
+        authService = AuthService(httpClient: mockClient, storage: storage);
+        authService.setBaseUrl('http://localhost:8080');
+
+        // Should not throw any error
+        await authService.forgotPassword(email: 'test@example.com');
+      });
+
+      test('trims email before sending request', () async {
+        mockClient = MockClient((request) async {
+          final body = jsonDecode(request.body);
+          expect(body['email'], 'test@example.com'); // Should be trimmed
+
+          return http.Response(
+            jsonEncode({'message': 'Password reset email sent'}),
+            200,
+          );
+        });
+
+        authService = AuthService(httpClient: mockClient, storage: storage);
+        authService.setBaseUrl('http://localhost:8080');
+
+        await authService.forgotPassword(email: '  test@example.com  ');
+      });
+
+      test('throws AuthError on non-200 response', () async {
+        mockClient = MockClient((request) async {
+          return http.Response(
+            jsonEncode({
+              'error': 'internal_error',
+              'message': 'Server error occurred',
+            }),
+            500,
+          );
+        });
+
+        authService = AuthService(httpClient: mockClient, storage: storage);
+        authService.setBaseUrl('http://localhost:8080');
+
+        expect(
+          () => authService.forgotPassword(email: 'test@example.com'),
+          throwsA(
+            isA<AuthError>().having(
+              (e) => e.type,
+              'type',
+              AuthErrorType.serverError,
+            ),
+          ),
+        );
+      });
+
+      test('throws AuthError on network error', () async {
+        mockClient = MockClient((request) async {
+          throw Exception('Network error');
+        });
+
+        authService = AuthService(httpClient: mockClient, storage: storage);
+        authService.setBaseUrl('http://localhost:8080');
+
+        expect(
+          () => authService.forgotPassword(email: 'test@example.com'),
+          throwsA(
+            isA<AuthError>().having(
+              (e) => e.type,
+              'type',
+              AuthErrorType.networkError,
+            ),
+          ),
+        );
+      });
+    });
   });
 
   group('AuthModels', () {

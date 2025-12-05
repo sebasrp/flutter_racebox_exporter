@@ -240,6 +240,42 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  /// Request a password reset email
+  ///
+  /// Sends a password reset request to the server. The server will send an email
+  /// with a reset token if the account exists. Always returns success to prevent
+  /// email enumeration attacks.
+  Future<void> forgotPassword({required String email}) async {
+    try {
+      final response = await _httpClient.post(
+        Uri.parse('$_baseUrl/api/v1/auth/forgot-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(ForgotPasswordRequest(email: email.trim()).toJson()),
+      );
+
+      // Server always returns 200 OK to prevent email enumeration
+      if (response.statusCode != 200) {
+        final responseData = _parseResponse(response);
+        throw AuthError.fromJson(responseData);
+      }
+
+      // Success - email sent (or silently ignored if account doesn't exist)
+      if (kDebugMode) {
+        print('[AuthService] Password reset requested for: $email');
+      }
+    } on AuthError {
+      rethrow;
+    } catch (e) {
+      if (kDebugMode) {
+        print('[AuthService] Forgot password error: $e');
+      }
+      throw AuthError(
+        type: AuthErrorType.networkError,
+        message: 'Failed to connect to server: $e',
+      );
+    }
+  }
+
   /// Get the current access token (refreshing if needed)
   Future<String?> getValidAccessToken() async {
     final authState = await _storage.getAuthState();
