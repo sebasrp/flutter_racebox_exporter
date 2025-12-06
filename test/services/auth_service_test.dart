@@ -506,6 +506,30 @@ void main() {
     });
   });
 
+  group('ResetPasswordRequest', () {
+    test('toJson returns correct map', () {
+      final request = ResetPasswordRequest(
+        token: 'reset-token-123',
+        password: 'newpassword123',
+      );
+      final json = request.toJson();
+
+      expect(json, {'token': 'reset-token-123', 'password': 'newpassword123'});
+    });
+  });
+
+  group('AuthError - expiredToken', () {
+    test('parses expired_token error code correctly', () {
+      final error = AuthError.fromJson({
+        'error': 'expired_token',
+        'message': 'Reset token has expired',
+      });
+
+      expect(error.type, AuthErrorType.expiredToken);
+      expect(error.message, 'Reset token has expired');
+    });
+  });
+
   group('SecureStorageService', () {
     late SecureStorageService storage;
 

@@ -98,6 +98,18 @@ class ForgotPasswordRequest {
   }
 }
 
+/// Request body for reset password
+class ResetPasswordRequest {
+  final String token;
+  final String password;
+
+  ResetPasswordRequest({required this.token, required this.password});
+
+  Map<String, dynamic> toJson() {
+    return {'token': token, 'password': password};
+  }
+}
+
 /// Authentication error types
 enum AuthErrorType {
   invalidCredentials,
@@ -105,6 +117,7 @@ enum AuthErrorType {
   invalidRequest,
   accountDisabled,
   invalidToken,
+  expiredToken,
   networkError,
   serverError,
   unknown,
@@ -137,6 +150,9 @@ class AuthError implements Exception {
         break;
       case 'invalid_token':
         type = AuthErrorType.invalidToken;
+        break;
+      case 'expired_token':
+        type = AuthErrorType.expiredToken;
         break;
       case 'internal_error':
         type = AuthErrorType.serverError;
