@@ -530,6 +530,148 @@ void main() {
     });
   });
 
+  group('resetPassword', () {
+    late AuthService authService;
+    late MockClient mockClient;
+    late SecureStorageService storage;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      storage = SecureStorageService();
+      await storage.init();
+    });
+
+    tearDown(() async {
+      await storage.clearAuthState();
+    });
+
+    test('successful password reset completes without error', () async {
+      mockClient = MockClient((request) async {
+        expect(request.url.path, '/api/v1/auth/reset-password');
+        expect(request.method, 'POST');
+
+        final body = jsonDecode(request.body);
+        expect(body['token'], 'valid-reset-token');
+        expect(body['password'], 'newpassword123');
+
+        return http.Response(
+          jsonEncode({'message': 'Password reset successful'}),
+          200,
+        );
+      });
+
+      authService = AuthService(httpClient: mockClient, storage: storage);
+      authService.setBaseUrl('http://localhost:8080');
+
+      // Should not throw any error
+      await authService.resetPassword(
+        token: 'valid-reset-token',
+        password: 'newpassword123',
+      );
+    });
+
+    test('trims token before sending request', () async {
+      mockClient = MockClient((request) async {
+        final body = jsonDecode(request.body);
+        expect(body['token'], 'valid-reset-token'); // Should be trimmed
+
+        return http.Response(
+          jsonEncode({'message': 'Password reset successful'}),
+          200,
+        );
+      });
+
+      authService = AuthService(httpClient: mockClient, storage: storage);
+      authService.setBaseUrl('http://localhost:8080');
+
+      await authService.resetPassword(
+        token: '  valid-reset-token  ',
+        password: 'newpassword123',
+      );
+    });
+
+    test('throws AuthError with expiredToken type for expired token', () async {
+      mockClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'error': 'expired_token',
+            'message': 'Reset token has expired',
+          }),
+          400,
+        );
+      });
+
+      authService = AuthService(httpClient: mockClient, storage: storage);
+      authService.setBaseUrl('http://localhost:8080');
+
+      expect(
+        () => authService.resetPassword(
+          token: 'expired-token',
+          password: 'newpassword123',
+        ),
+        throwsA(
+          isA<AuthError>().having(
+            (e) => e.type,
+            'type',
+            AuthErrorType.expiredToken,
+          ),
+        ),
+      );
+    });
+
+    test('throws AuthError with invalidToken type for invalid token', () async {
+      mockClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'error': 'invalid_token',
+            'message': 'Invalid reset token',
+          }),
+          400,
+        );
+      });
+
+      authService = AuthService(httpClient: mockClient, storage: storage);
+      authService.setBaseUrl('http://localhost:8080');
+
+      expect(
+        () => authService.resetPassword(
+          token: 'invalid-token',
+          password: 'newpassword123',
+        ),
+        throwsA(
+          isA<AuthError>().having(
+            (e) => e.type,
+            'type',
+            AuthErrorType.invalidToken,
+          ),
+        ),
+      );
+    });
+
+    test('throws AuthError on network error', () async {
+      mockClient = MockClient((request) async {
+        throw Exception('Network error');
+      });
+
+      authService = AuthService(httpClient: mockClient, storage: storage);
+      authService.setBaseUrl('http://localhost:8080');
+
+      expect(
+        () => authService.resetPassword(
+          token: 'valid-token',
+          password: 'newpassword123',
+        ),
+        throwsA(
+          isA<AuthError>().having(
+            (e) => e.type,
+            'type',
+            AuthErrorType.networkError,
+          ),
+        ),
+      );
+    });
+  });
+
   group('SecureStorageService', () {
     late SecureStorageService storage;
 

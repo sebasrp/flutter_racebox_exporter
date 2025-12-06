@@ -276,6 +276,49 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  /// Reset password using a reset token
+  ///
+  /// Sends a password reset request to the server with the token from the email
+  /// and the new password. Throws AuthError if the token is invalid or expired.
+  Future<void> resetPassword({
+    required String token,
+    required String password,
+  }) async {
+    try {
+      final response = await _httpClient.post(
+        Uri.parse('$_baseUrl/api/v1/auth/reset-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(
+          ResetPasswordRequest(
+            token: token.trim(),
+            password: password,
+          ).toJson(),
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        if (kDebugMode) {
+          print('[AuthService] Password reset successful');
+        }
+        return;
+      }
+
+      // Handle error response
+      final responseData = _parseResponse(response);
+      throw AuthError.fromJson(responseData);
+    } on AuthError {
+      rethrow;
+    } catch (e) {
+      if (kDebugMode) {
+        print('[AuthService] Reset password error: $e');
+      }
+      throw AuthError(
+        type: AuthErrorType.networkError,
+        message: 'Failed to connect to server: $e',
+      );
+    }
+  }
+
   /// Get the current access token (refreshing if needed)
   Future<String?> getValidAccessToken() async {
     final authState = await _storage.getAuthState();
