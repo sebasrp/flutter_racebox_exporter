@@ -4,6 +4,9 @@ import 'providers/racebox_provider.dart';
 import 'services/auth_service.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/register_screen.dart';
+import 'screens/forgot_password_screen.dart';
+import 'screens/reset_password_screen.dart';
 
 void main() async {
   // Ensure Flutter bindings are initialized
@@ -41,6 +44,25 @@ class MyApp extends StatelessWidget {
           useMaterial3: true,
         ),
         home: const AuthWrapper(),
+        routes: {
+          '/login': (context) => const LoginScreen(),
+          '/register': (context) => const RegisterScreen(),
+          '/forgot-password': (context) => const ForgotPasswordScreen(),
+          '/dashboard': (context) => const DashboardScreen(),
+        },
+        onGenerateRoute: (settings) {
+          // Handle routes with parameters
+          if (settings.name == '/reset-password') {
+            final token = settings.arguments as String?;
+            if (token != null) {
+              return MaterialPageRoute(
+                builder: (context) => ResetPasswordScreen(token: token),
+                settings: settings,
+              );
+            }
+          }
+          return null;
+        },
       ),
     );
   }
